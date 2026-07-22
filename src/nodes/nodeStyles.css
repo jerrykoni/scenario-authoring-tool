@@ -1,0 +1,79 @@
+.scenario-node {
+  min-width: 220px;
+  max-width: 280px;
+  border-radius: 12px;
+  border: 2px solid #2f3542;
+  background: #ffffff;
+  color: #1f2933;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  overflow: hidden;
+}
+
+.scenario-node__header {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.scenario-node__header--observe {
+  background: #18ad2e;
+}
+
+.scenario-node__header--action {
+  background: #162ba3;
+}
+
+.scenario-node__header--decision {
+  background: #c0ba07;
+}
+
+.scenario-node__header--end {
+  background: #111827;
+}
+
+.scenario-node__body {
+  padding: 10px;
+}
+
+.scenario-node__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.scenario-node__text {
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 8px;
+}
+
+.scenario-node__meta {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.scenario-node__tag-list {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.scenario-node__tag {
+  font-size: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 2px 6px;
+}
