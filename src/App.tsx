@@ -17,6 +17,9 @@ import { initialEdges, initialNodes } from './scenario/sampleGraph';
 import type { AuthoringNodeData } from './scenario/authoringTypes';
 import { Toolbar } from './ui/Toolbar';
 import { InspectorPanel } from './ui/InspectorPanel';
+import { compileScenarioDefinition } from './scenario/compileScenarioDefinition';
+import { compilePracticeSlices } from './scenario/compilePracticeSlices';
+import { compileLearningSlices } from './scenario/compileLearningSlices';
 
 import './App.css';
 
@@ -141,12 +144,14 @@ export default function App() {
             labelKey: 'Yes',
             styleKey: 'positive',
             iconKey: '',
+            stateEffects: {},
           },
           {
             choiceId: 'no',
             labelKey: 'No',
             styleKey: 'negative',
             iconKey: '',
+            stateEffects: {},
           },
         ],
         assessmentTags: ['clinical_reasoning'],
@@ -172,12 +177,14 @@ export default function App() {
             labelKey: 'choice_one',
             styleKey: 'dialogue',
             iconKey: '',
+            stateEffects: {},
           },
           {
             choiceId: 'choice_two',
             labelKey: 'choice_two',
             styleKey: 'dialogue',
             iconKey: '',
+            stateEffects: {},
           },
         ],
         assessmentTags: ['dialogue_choice'],
@@ -196,6 +203,9 @@ export default function App() {
         promptKey: '',
         instructionKey: '',
         iconKeys: [],
+        contextPatch: {
+          branchSelections: {},
+        },
         assessmentTags: [],
       },
       { x: 1200, y: 360 },
@@ -297,6 +307,49 @@ export default function App() {
     setEdges([]);
   }
 
+  function exportScenarioJson() {
+    const scenario = compileScenarioDefinition(nodes, edges, {
+      scenarioId: 'start_sop_tiny_demo_v1',
+      title: 'START SOP Tiny Demo',
+      version: '0.1.0',
+      language: 'en',
+      domain: 'triage_training',
+      description:
+        'Tiny data-driven START SOP demo generated from React Flow authoring graph.',
+      startNodeId: 'observe_initial_casualty',
+    });
+  
+    downloadJson(`${scenario.scenarioId}.scenario.json`, scenario);
+  }
+
+  function exportPracticeSlicesJson() {
+    const scenarioId = 'start_sop_tiny_demo_v1';
+    const startNodeId = 'observe_initial_casualty';
+  
+    const practiceSlices = compilePracticeSlices(
+      nodes,
+      edges,
+      scenarioId,
+      startNodeId,
+    );
+  
+    downloadJson(`${scenarioId}.practice_slices.json`, practiceSlices);
+  }
+
+  function exportLearningSlicesJson() {
+    const scenarioId = 'start_sop_tiny_demo_v1';
+    const startNodeId = 'observe_initial_casualty';
+  
+    const learningSlices = compileLearningSlices(
+      nodes,
+      edges,
+      scenarioId,
+      startNodeId,
+    );
+  
+    downloadJson(`${scenarioId}.learning_slices.json`, learningSlices);
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -314,6 +367,9 @@ export default function App() {
           onSaveDiagram={saveDiagram}
           onLoadDiagramClick={openLoadDialog}
           onClearDiagram={clearDiagram}
+          onExportScenarioJson={exportScenarioJson}
+          onExportPracticeSlicesJson={exportPracticeSlicesJson}
+          onExportLearningSlicesJson={exportLearningSlicesJson}
         />
       </header>
 

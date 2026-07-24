@@ -8,6 +8,10 @@ type ToolbarProps = {
   onSaveDiagram: () => void;
   onLoadDiagramClick: () => void;
   onClearDiagram: () => void;
+
+  onExportScenarioJson: () => void;
+  onExportPracticeSlicesJson: () => void;
+  onExportLearningSlicesJson: () => void;
 };
 
 export function Toolbar({
@@ -19,6 +23,9 @@ export function Toolbar({
   onSaveDiagram,
   onLoadDiagramClick,
   onClearDiagram,
+  onExportScenarioJson,
+  onExportPracticeSlicesJson,
+  onExportLearningSlicesJson,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
@@ -33,6 +40,12 @@ export function Toolbar({
       <button onClick={onSaveDiagram}>Save Diagram</button>
       <button onClick={onLoadDiagramClick}>Load Diagram</button>
       <button onClick={onClearDiagram}>Clear</button>
+
+      <span className="toolbar-divider" />
+
+      <button onClick={onExportScenarioJson}>Export Scenario JSON</button>
+      <button onClick={onExportPracticeSlicesJson}>Export Practice Slices</button>
+      <button onClick={onExportLearningSlicesJson}>Export Learning Slices</button>
     </div>
   );
 }

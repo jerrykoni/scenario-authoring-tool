@@ -35,12 +35,18 @@ export const initialNodes: ScenarioAuthoringNode[] = [
           labelKey: 'Yes',
           styleKey: 'positive',
           iconKey: 'icon.walking',
+          stateEffects: {
+            isStandingOrWalking: true,
+          },
         },
         {
           choiceId: 'no',
           labelKey: 'No',
           styleKey: 'negative',
           iconKey: 'icon.not_walking',
+          stateEffects: {
+            isStandingOrWalking: false,
+          },
         },
       ],
       assessmentTags: ['initial_observation', 'walking_assessment'],
@@ -56,6 +62,11 @@ export const initialNodes: ScenarioAuthoringNode[] = [
       titleKey: 'n_is_standing_or_walking_title',
       instructionKey: 'n_is_standing_or_walking_instruction',
       iconKeys: ['icon.walking'],
+      contextPatch: {
+        branchSelections: {
+          q_is_standing_or_walking: 'no',
+        },
+      },
       assessmentTags: [],
     },
   },

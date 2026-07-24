@@ -3,6 +3,8 @@ import type { Node } from '@xyflow/react';
 import type {
   AuthoringChoiceData,
   AuthoringNodeData,
+  BranchSelections,
+  StateEffects,
 } from '../scenario/authoringTypes';
 
 type InspectorPanelProps = {
@@ -24,6 +26,59 @@ function textToList(value: string) {
     .filter(Boolean);
 }
 
+function parsePrimitiveValue(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.toLowerCase() === 'true') {
+    return true;
+  }
+
+  if (trimmed.toLowerCase() === 'false') {
+    return false;
+  }
+
+  const numericValue = Number(trimmed);
+
+  if (!Number.isNaN(numericValue) && trimmed !== '') {
+    return numericValue;
+  }
+
+  return trimmed;
+}
+
+function stateEffectsToText(stateEffects?: StateEffects) {
+  if (!stateEffects) {
+    return '';
+  }
+
+  return Object.entries(stateEffects)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(', ');
+}
+
+function textToStateEffects(value: string): StateEffects | undefined {
+  const entries = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [key, rawValue] = entry.split('=').map((part) => part.trim());
+
+      if (!key || rawValue === undefined) {
+        return null;
+      }
+
+      return [key, parsePrimitiveValue(rawValue)] as const;
+    })
+    .filter(Boolean) as Array<readonly [string, string | number | boolean]>;
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
 function choicesToText(choices?: AuthoringChoiceData[]) {
   return (
     choices
@@ -33,6 +88,7 @@ function choicesToText(choices?: AuthoringChoiceData[]) {
           choice.labelKey ?? '',
           choice.styleKey ?? '',
           choice.iconKey ?? '',
+          stateEffectsToText(choice.stateEffects),
         ].join('; '),
       )
       .join('\n') ?? ''
@@ -45,7 +101,7 @@ function textToChoices(value: string): AuthoringChoiceData[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [choiceId, labelKey, styleKey, iconKey] = line
+      const [choiceId, labelKey, styleKey, iconKey, stateEffectsText] = line
         .split(';')
         .map((part) => part.trim());
 
@@ -54,9 +110,43 @@ function textToChoices(value: string): AuthoringChoiceData[] {
         labelKey,
         styleKey,
         iconKey,
+        stateEffects: textToStateEffects(stateEffectsText ?? ''),
       };
     })
     .filter((choice) => Boolean(choice.choiceId));
+}
+
+function branchSelectionsToText(branchSelections?: BranchSelections) {
+  if (!branchSelections) {
+    return '';
+  }
+
+  return Object.entries(branchSelections)
+    .map(([nodeId, choiceId]) => `${nodeId} = ${choiceId}`)
+    .join('\n');
+}
+
+function textToBranchSelections(value: string): BranchSelections | undefined {
+  const entries = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [nodeId, choiceId] = line.split('=').map((part) => part.trim());
+
+      if (!nodeId || !choiceId) {
+        return null;
+      }
+
+      return [nodeId, choiceId] as const;
+    })
+    .filter(Boolean) as Array<readonly [string, string]>;
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
 }
 
 export function InspectorPanel({
@@ -66,18 +156,23 @@ export function InspectorPanel({
   const [assessmentTagsText, setAssessmentTagsText] = useState('');
   const [iconKeysText, setIconKeysText] = useState('');
   const [choicesText, setChoicesText] = useState('');
+  const [contextPatchText, setContextPatchText] = useState('');
 
   useEffect(() => {
     if (!selectedNode) {
       setAssessmentTagsText('');
       setIconKeysText('');
       setChoicesText('');
+      setContextPatchText('');
       return;
     }
 
     setAssessmentTagsText(listToText(selectedNode.data.assessmentTags));
     setIconKeysText(listToText(selectedNode.data.iconKeys));
     setChoicesText(choicesToText(selectedNode.data.choices));
+    setContextPatchText(
+      branchSelectionsToText(selectedNode.data.contextPatch?.branchSelections),
+    );
   }, [selectedNode?.id]);
 
   if (!selectedNode) {
@@ -114,6 +209,16 @@ export function InspectorPanel({
   function updateChoices(value: string) {
     setChoicesText(value);
     updateField('choices', textToChoices(value));
+  }
+
+  function updateContextPatch(value: string) {
+    setContextPatchText(value);
+
+    const branchSelections = textToBranchSelections(value);
+
+    updateField('contextPatch', {
+      branchSelections,
+    });
   }
 
   return (
@@ -257,16 +362,39 @@ export function InspectorPanel({
             <textarea
               value={choicesText}
               onChange={(event) => updateChoices(event.target.value)}
-              rows={6}
+              rows={7}
               placeholder={
-                'choiceId; labelKey; styleKey; iconKey\nyes; Yes; positive; icon.yes\nno; No; negative; icon.no'
+                'choiceId; labelKey; styleKey; iconKey; stateEffects\n' +
+                'yes; Yes; positive; icon.walking; isStandingOrWalking=true\n' +
+                'no; No; negative; icon.not_walking; isStandingOrWalking=false'
               }
             />
           </label>
 
           <p className="inspector-help">
-            Each line is: choiceId; labelKey; styleKey; iconKey. The choiceId
-            becomes the output handle ID.
+            Each line is: choiceId; labelKey; styleKey; iconKey; stateEffects.
+            State effects are optional and use comma-separated key=value pairs.
+          </p>
+        </div>
+      )}
+
+      {data.kind === 'notification' && (
+        <div className="inspector-section">
+          <h3>Context Patch</h3>
+
+          <label>
+            Branch selections to apply after this notification
+            <textarea
+              value={contextPatchText}
+              onChange={(event) => updateContextPatch(event.target.value)}
+              rows={4}
+              placeholder={'q_is_standing_or_walking = no'}
+            />
+          </label>
+
+          <p className="inspector-help">
+            Each line is: decisionNodeId = choiceId. The exporter will later
+            infer sceneState from these branch selections.
           </p>
         </div>
       )}
