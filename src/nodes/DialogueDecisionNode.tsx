@@ -2,13 +2,14 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { AuthoringNodeData } from '../scenario/authoringTypes';
 import './nodeStyles.css';
 
-export function YesNoDecisionNode({ data }: NodeProps) {
+export function DialogueDecisionNode({ data }: NodeProps) {
   const nodeData = data as AuthoringNodeData;
+  const choices = nodeData.choices ?? [];
 
   return (
     <div className="scenario-node">
-      <div className="scenario-node__header scenario-node__header--decision">
-        Yes / No Decision
+      <div className="scenario-node__header scenario-node__header--dialogue">
+        Dialogue Decision
       </div>
 
       <div className="scenario-node__body">
@@ -19,13 +20,25 @@ export function YesNoDecisionNode({ data }: NodeProps) {
             <strong>runtime:</strong> DecisionNode
           </div>
           <div>
-            <strong>choices:</strong> yes / no
+            <strong>choices:</strong> {choices.length}
           </div>
-          {nodeData.choicesTitleKey && (
-            <div>
-              <strong>choices title:</strong> {nodeData.choicesTitleKey}
+        </div>
+
+        <div className="scenario-node__choice-list">
+          {choices.map((choice, index) => (
+            <div key={choice.choiceId} className="scenario-node__choice-row">
+              {choice.choiceId}
+
+              <Handle
+                id={choice.choiceId}
+                type="source"
+                position={Position.Right}
+                style={{
+                  top: `${42 + index * 18}%`,
+                }}
+              />
             </div>
-          )}
+          ))}
         </div>
 
         {nodeData.assessmentTags && nodeData.assessmentTags.length > 0 && (
@@ -40,20 +53,6 @@ export function YesNoDecisionNode({ data }: NodeProps) {
       </div>
 
       <Handle type="target" position={Position.Left} />
-
-      <Handle
-        id="yes"
-        type="source"
-        position={Position.Right}
-        style={{ top: '38%' }}
-      />
-
-      <Handle
-        id="no"
-        type="source"
-        position={Position.Right}
-        style={{ top: '68%' }}
-      />
     </div>
   );
 }

@@ -104,30 +104,20 @@ export default function App() {
     setNodes((currentNodes) => [...currentNodes, newNode]);
   }
 
-  function addObserveNode() {
-    addNode(
-      'observeNode',
-      {
-        kind: 'observe',
-        title: 'New observation',
-        text: 'Describe what the trainee should observe.',
-        targetId: 'subject.target',
-        interactionType: 'look',
-        assessmentTags: ['required_observation'],
-      },
-      { x: 120, y: 360 },
-    );
-  }
-
   function addActionNode() {
     addNode(
       'actionNode',
       {
         kind: 'action',
         title: 'New action',
-        text: 'Describe what the trainee should do.',
+        titleKey: '',
+        promptKey: '',
+        instructionKey: '',
+        iconKeys: [],
+        eventType: 'ActionPerformed',
         targetId: 'subject.target',
         interactionType: 'action_type',
+        minimumDurationSeconds: 0,
         assessmentTags: ['required_action'],
       },
       { x: 420, y: 360 },
@@ -140,11 +130,75 @@ export default function App() {
       {
         kind: 'yesNoDecision',
         title: 'New yes/no decision',
-        text: 'Write the decision question here.',
-        presentationTemplate: 'yes_no',
+        titleKey: '',
+        promptKey: '',
+        instructionKey: '',
+        iconKeys: [],
+        choicesTitleKey: '',
+        choices: [
+          {
+            choiceId: 'yes',
+            labelKey: 'Yes',
+            styleKey: 'positive',
+            iconKey: '',
+          },
+          {
+            choiceId: 'no',
+            labelKey: 'No',
+            styleKey: 'negative',
+            iconKey: '',
+          },
+        ],
         assessmentTags: ['clinical_reasoning'],
       },
       { x: 720, y: 360 },
+    );
+  }
+
+  function addDialogueDecisionNode() {
+    addNode(
+      'dialogueDecisionNode',
+      {
+        kind: 'dialogueDecision',
+        title: 'New dialogue decision',
+        titleKey: '',
+        promptKey: '',
+        instructionKey: '',
+        iconKeys: [],
+        choicesTitleKey: '',
+        choices: [
+          {
+            choiceId: 'choice_one',
+            labelKey: 'choice_one',
+            styleKey: 'dialogue',
+            iconKey: '',
+          },
+          {
+            choiceId: 'choice_two',
+            labelKey: 'choice_two',
+            styleKey: 'dialogue',
+            iconKey: '',
+          },
+        ],
+        assessmentTags: ['dialogue_choice'],
+      },
+      { x: 960, y: 360 },
+    );
+  }
+
+  function addNotificationNode() {
+    addNode(
+      'notificationNode',
+      {
+        kind: 'notification',
+        title: 'New notification',
+        titleKey: '',
+        promptKey: '',
+        instructionKey: '',
+        iconKeys: [],
+        assessmentTags: [],
+      },
+      { x: 1200, y: 360 },
     );
   }
 
@@ -154,8 +208,13 @@ export default function App() {
       {
         kind: 'end',
         title: 'New end node',
+        titleKey: '',
+        promptKey: '',
+        instructionKey: '',
+        iconKeys: [],
+        assessmentTags: [],
       },
-      { x: 1020, y: 360 },
+      { x: 1440, y: 360 },
     );
   }
 
@@ -243,13 +302,14 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>Scenario Authoring Tool</h1>
-          <p>Phase 1.6 demo: visual editing with inspector panel</p>
+          <p>Phase 1.7 demo: updated scenario nodes and inspector</p>
         </div>
 
         <Toolbar
-          onAddObserve={addObserveNode}
           onAddAction={addActionNode}
           onAddYesNoDecision={addYesNoDecisionNode}
+          onAddDialogueDecision={addDialogueDecisionNode}
+          onAddNotification={addNotificationNode}
           onAddEnd={addEndNode}
           onSaveDiagram={saveDiagram}
           onLoadDiagramClick={openLoadDialog}

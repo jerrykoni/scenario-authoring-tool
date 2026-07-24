@@ -14,11 +14,10 @@ export function ActionNode({ data }: NodeProps) {
       <div className="scenario-node__body">
         <div className="scenario-node__title">{nodeData.title}</div>
 
-        {nodeData.text && (
-          <div className="scenario-node__text">{nodeData.text}</div>
-        )}
-
         <div className="scenario-node__meta">
+          <div>
+            <strong>event:</strong> {nodeData.eventType || 'missing'}
+          </div>
           <div>
             <strong>target:</strong> {nodeData.targetId || 'missing'}
           </div>

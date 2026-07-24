@@ -1,6 +1,6 @@
 .scenario-node {
   min-width: 220px;
-  max-width: 280px;
+  max-width: 300px;
   border-radius: 12px;
   border: 2px solid #2f3542;
   background: #ffffff;
@@ -25,16 +25,20 @@
   text-transform: uppercase;
 }
 
-.scenario-node__header--observe {
-  background: #18ad2e;
-}
-
 .scenario-node__header--action {
-  background: #162ba3;
+  background: #16a34a;
 }
 
 .scenario-node__header--decision {
-  background: #c0ba07;
+  background: #9333ea;
+}
+
+.scenario-node__header--dialogue {
+  background: #db2777;
+}
+
+.scenario-node__header--notification {
+  background: #f97316;
 }
 
 .scenario-node__header--end {
@@ -76,4 +80,20 @@
   color: #3730a3;
   border-radius: 999px;
   padding: 2px 6px;
+}
+
+.scenario-node__choice-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scenario-node__choice-row {
+  position: relative;
+  font-size: 11px;
+  color: #374151;
+  background: #fdf2f8;
+  border-radius: 8px;
+  padding: 4px 8px;
 }

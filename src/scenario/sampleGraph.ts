@@ -1,15 +1,17 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { AuthoringNodeData } from './authoringTypes';
 
-export const initialNodes: Node<AuthoringNodeData>[] = [
+export type ScenarioAuthoringNode = Node<AuthoringNodeData>;
+
+export const initialNodes: ScenarioAuthoringNode[] = [
   {
-    id: 'observe_initial',
-    type: 'observeNode',
+    id: 'observe_initial_casualty',
+    type: 'actionNode',
     position: { x: 100, y: 100 },
     data: {
-      kind: 'observe',
+      kind: 'action',
       title: 'Observe initial casualty',
-      text: 'Look at the casualty.',
+      eventType: 'ObjectInspected',
       targetId: 'subject.casualty',
       interactionType: 'look',
       assessmentTags: [
@@ -20,42 +22,51 @@ export const initialNodes: Node<AuthoringNodeData>[] = [
     },
   },
   {
-    id: 'standing_or_walking',
+    id: 'q_is_standing_or_walking',
     type: 'yesNoDecisionNode',
-    position: { x: 420, y: 80 },
+    position: { x: 440, y: 80 },
     data: {
       kind: 'yesNoDecision',
-      title: 'Standing or walking?',
-      text: 'Is the casualty standing or walking?',
-      presentationTemplate: 'yes_no',
+      title: 'Is standing or walking?',
+      choicesTitleKey: '',
+      choices: [
+        {
+          choiceId: 'yes',
+          labelKey: 'Yes',
+          styleKey: 'positive',
+          iconKey: 'icon.walking',
+        },
+        {
+          choiceId: 'no',
+          labelKey: 'No',
+          styleKey: 'negative',
+          iconKey: 'icon.not_walking',
+        },
+      ],
       assessmentTags: ['initial_observation', 'walking_assessment'],
     },
   },
   {
-    id: 'assign_green',
-    type: 'actionNode',
-    position: { x: 760, y: 0 },
+    id: 'n_is_standing_or_walking',
+    type: 'notificationNode',
+    position: { x: 780, y: 0 },
     data: {
-      kind: 'action',
-      title: 'Assign green card',
-      text: 'Assign a Green Card using the equipment.',
-      targetId: 'equipment.triage_card',
-      interactionType: 'assign_green_card',
-      assessmentTags: [
-        'green_card_assignment_action',
-        'equipment_use',
-        'triage_card_assignment',
-      ],
+      kind: 'notification',
+      title: 'Standing / walking notification',
+      titleKey: 'n_is_standing_or_walking_title',
+      instructionKey: 'n_is_standing_or_walking_instruction',
+      iconKeys: ['icon.walking'],
+      assessmentTags: [],
     },
   },
   {
-    id: 'ask_can_walk',
+    id: 'action_ask_can_you_walk',
     type: 'actionNode',
-    position: { x: 760, y: 180 },
+    position: { x: 780, y: 190 },
     data: {
       kind: 'action',
       title: 'Ask: Can you walk?',
-      text: 'Ask the casualty: Can you walk?',
+      eventType: 'ActionPerformed',
       targetId: 'subject.casualty',
       interactionType: 'ask_can_walk',
       assessmentTags: [
@@ -66,9 +77,60 @@ export const initialNodes: Node<AuthoringNodeData>[] = [
     },
   },
   {
+    id: 'q_can_walk',
+    type: 'dialogueDecisionNode',
+    position: { x: 1120, y: 150 },
+    data: {
+      kind: 'dialogueDecision',
+      title: 'Dialogue: Can walk?',
+      choices: [
+        {
+          choiceId: 'please_move_to_safe_area',
+          labelKey: 'please_move_to_safe_area',
+          styleKey: 'dialogue',
+        },
+        {
+          choiceId: 'can_you_walk',
+          labelKey: 'can_you_walk',
+          styleKey: 'dialogue',
+        },
+        {
+          choiceId: 'what_is_your_name',
+          labelKey: 'what_is_your_name',
+          styleKey: 'dialogue',
+        },
+      ],
+      assessmentTags: ['initial_observation', 'walking_assessment'],
+    },
+  },
+  {
+    id: 'q_does_casualty_respond',
+    type: 'yesNoDecisionNode',
+    position: { x: 1480, y: 150 },
+    data: {
+      kind: 'yesNoDecision',
+      title: 'Does casualty respond?',
+      choices: [
+        {
+          choiceId: 'yes',
+          labelKey: 'Yes',
+          styleKey: 'positive',
+          iconKey: 'icon.responding',
+        },
+        {
+          choiceId: 'no',
+          labelKey: 'No',
+          styleKey: 'negative',
+          iconKey: 'icon.not_responding',
+        },
+      ],
+      assessmentTags: ['responsiveness_assessment'],
+    },
+  },
+  {
     id: 'end_demo',
     type: 'endNode',
-    position: { x: 1100, y: 90 },
+    position: { x: 1820, y: 150 },
     data: {
       kind: 'end',
       title: 'End demo',
@@ -78,35 +140,70 @@ export const initialNodes: Node<AuthoringNodeData>[] = [
 
 export const initialEdges: Edge[] = [
   {
-    id: 'e_observe_initial_to_standing',
-    source: 'observe_initial',
+    id: 'e_observe_to_q_standing',
+    source: 'observe_initial_casualty',
     sourceHandle: 'next',
-    target: 'standing_or_walking',
+    target: 'q_is_standing_or_walking',
   },
   {
-    id: 'e_standing_yes_to_green',
-    source: 'standing_or_walking',
+    id: 'e_standing_yes_to_notification',
+    source: 'q_is_standing_or_walking',
     sourceHandle: 'yes',
-    target: 'assign_green',
+    target: 'n_is_standing_or_walking',
     label: 'yes',
   },
   {
     id: 'e_standing_no_to_ask',
-    source: 'standing_or_walking',
+    source: 'q_is_standing_or_walking',
     sourceHandle: 'no',
-    target: 'ask_can_walk',
+    target: 'action_ask_can_you_walk',
     label: 'no',
   },
   {
-    id: 'e_green_to_end',
-    source: 'assign_green',
+    id: 'e_notification_to_ask',
+    source: 'n_is_standing_or_walking',
     sourceHandle: 'next',
-    target: 'end_demo',
+    target: 'action_ask_can_you_walk',
   },
   {
-    id: 'e_ask_to_end',
-    source: 'ask_can_walk',
+    id: 'e_ask_to_q_can_walk',
+    source: 'action_ask_can_you_walk',
     sourceHandle: 'next',
+    target: 'q_can_walk',
+  },
+  {
+    id: 'e_dialogue_please_move',
+    source: 'q_can_walk',
+    sourceHandle: 'please_move_to_safe_area',
+    target: 'q_does_casualty_respond',
+    label: 'please_move_to_safe_area',
+  },
+  {
+    id: 'e_dialogue_can_walk',
+    source: 'q_can_walk',
+    sourceHandle: 'can_you_walk',
+    target: 'q_does_casualty_respond',
+    label: 'can_you_walk',
+  },
+  {
+    id: 'e_dialogue_name',
+    source: 'q_can_walk',
+    sourceHandle: 'what_is_your_name',
+    target: 'q_does_casualty_respond',
+    label: 'what_is_your_name',
+  },
+  {
+    id: 'e_respond_yes_to_end',
+    source: 'q_does_casualty_respond',
+    sourceHandle: 'yes',
     target: 'end_demo',
+    label: 'yes',
+  },
+  {
+    id: 'e_respond_no_to_end',
+    source: 'q_does_casualty_respond',
+    sourceHandle: 'no',
+    target: 'end_demo',
+    label: 'no',
   },
 ];

@@ -1,7 +1,8 @@
 type ToolbarProps = {
-  onAddObserve: () => void;
   onAddAction: () => void;
   onAddYesNoDecision: () => void;
+  onAddDialogueDecision: () => void;
+  onAddNotification: () => void;
   onAddEnd: () => void;
 
   onSaveDiagram: () => void;
@@ -10,9 +11,10 @@ type ToolbarProps = {
 };
 
 export function Toolbar({
-  onAddObserve,
   onAddAction,
   onAddYesNoDecision,
+  onAddDialogueDecision,
+  onAddNotification,
   onAddEnd,
   onSaveDiagram,
   onLoadDiagramClick,
@@ -20,9 +22,10 @@ export function Toolbar({
 }: ToolbarProps) {
   return (
     <div className="toolbar">
-      <button onClick={onAddObserve}>+ Observe</button>
       <button onClick={onAddAction}>+ Action</button>
       <button onClick={onAddYesNoDecision}>+ Yes/No Decision</button>
+      <button onClick={onAddDialogueDecision}>+ Dialogue Decision</button>
+      <button onClick={onAddNotification}>+ Notification</button>
       <button onClick={onAddEnd}>+ End</button>
 
       <span className="toolbar-divider" />
