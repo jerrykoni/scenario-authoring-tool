@@ -2,15 +2,16 @@ import type { Edge, Node } from '@xyflow/react';
 import type {
   AuthoringChoiceData,
   AuthoringNodeData,
-  StateEffects,
+  StateApplyTiming,
 } from './authoringTypes';
-import type { PracticeSlice, PracticeSlicePackage } from './sliceTypes';
+import type { PracticeSlice, PracticeSlicePackage, PracticeStep } from './sliceTypes';
 import { inferStateEffectsFromChoice } from './stateInference';
+import { mergeSceneStateEntries } from './sceneStateUtils';
 
 type TraversalContext = {
   branchSelections: Record<string, string>;
-  sceneState: Record<string, string | number | boolean>;
-  steps: Array<{ nodeId: string }>;
+  sceneState: PracticeSlice['sceneState'];
+  steps: PracticeStep[];
   visited: Set<string>;
 };
 
@@ -26,16 +27,6 @@ function getNextNodeIdFromHandle(
   return edges.find(
     (edge) => edge.source === nodeId && edge.sourceHandle === handleId,
   )?.target;
-}
-
-function mergeStateEffects(
-  currentSceneState: Record<string, string | number | boolean>,
-  stateEffects?: StateEffects,
-) {
-  return {
-    ...currentSceneState,
-    ...(stateEffects ?? {}),
-  };
 }
 
 function createSliceId(branchSelections: Record<string, string>) {
@@ -66,7 +57,10 @@ function cloneContext(context: TraversalContext): TraversalContext {
   return {
     branchSelections: { ...context.branchSelections },
     sceneState: { ...context.sceneState },
-    steps: [...context.steps],
+    steps: context.steps.map((step) => ({
+      nodeId: step.nodeId,
+      stateRevealNodeIds: [...step.stateRevealNodeIds],
+    })),
     visited: new Set(context.visited),
   };
 }
@@ -80,6 +74,26 @@ function createPracticeSlice(context: TraversalContext): PracticeSlice {
     sceneState: context.sceneState,
     steps: context.steps,
   };
+}
+
+function getDefaultApplyTiming(context: TraversalContext): StateApplyTiming {
+  // First resolved decision defines initial scene setup.
+  // Later state-producing decisions are revealed when their source node is reached.
+  return Object.keys(context.branchSelections).length === 0
+    ? 'AtSliceStart'
+    : 'OnSourceNodeReached';
+}
+
+function addRevealToLastStep(context: TraversalContext, sourceNodeId: string) {
+  const lastStep = context.steps[context.steps.length - 1];
+
+  if (!lastStep) {
+    return;
+  }
+
+  if (!lastStep.stateRevealNodeIds.includes(sourceNodeId)) {
+    lastStep.stateRevealNodeIds.push(sourceNodeId);
+  }
 }
 
 function traversePracticePath(
@@ -108,7 +122,11 @@ function traversePracticePath(
       const nextNodeId = getNextNodeIdFromHandle(node.id, 'next', edges);
 
       const nextContext = cloneContext(context);
-      nextContext.steps.push({ nodeId: node.id });
+
+      nextContext.steps.push({
+        nodeId: node.id,
+        stateRevealNodeIds: [],
+      });
 
       if (!nextNodeId) {
         return [createPracticeSlice(nextContext)];
@@ -140,11 +158,19 @@ function traversePracticePath(
         nextContext.branchSelections[node.id] = choice.choiceId;
 
         const stateEffects = inferStateEffectsFromChoice(node.id, choice);
+        const applyTiming =
+          choice.stateApplyTiming ?? getDefaultApplyTiming(context);
 
-        nextContext.sceneState = mergeStateEffects(
+        nextContext.sceneState = mergeSceneStateEntries(
           nextContext.sceneState,
           stateEffects,
+          applyTiming,
+          node.id,
         );
+
+        if (stateEffects && applyTiming === 'OnSourceNodeReached') {
+          addRevealToLastStep(nextContext, node.id);
+        }
 
         return traversePracticePath(nextNodeId, nodes, edges, nextContext);
       });

@@ -11,10 +11,12 @@ import type {
   LearningSlicePackage,
 } from './sliceTypes';
 import { inferStateEffectsFromChoice } from './stateInference';
+import type { StateApplyTiming } from './authoringTypes';
+import { mergeSceneStateEntries } from './sceneStateUtils';
 
 type LearningTraversalContext = {
   branchSelections: Record<string, string>;
-  sceneState: Record<string, string | number | boolean>;
+  sceneState: LearningSlice['sceneState'];
 
   decisionRules: Record<string, LearningDecisionRule>;
   notificationRules: Record<string, LearningNotificationRule>;
@@ -41,15 +43,28 @@ function getNextNodeIdFromHandle(
   )?.target;
 }
 
-function mergeSceneState(
-  currentSceneState: Record<string, string | number | boolean>,
-  patch?: Record<string, string | number | boolean>,
-) {
-  return {
-    ...currentSceneState,
-    ...(patch ?? {}),
-  };
+function getDefaultApplyTiming(
+  context: LearningTraversalContext,
+): StateApplyTiming {
+  if (
+    !context.isAfterContextPatch &&
+    Object.keys(context.branchSelections).length === 0
+  ) {
+    return 'AtSliceStart';
+  }
+
+  return 'OnSourceNodeReached';
 }
+
+// function mergeSceneState(
+//   currentSceneState: Record<string, string | number | boolean>,
+//   patch?: Record<string, string | number | boolean>,
+// ) {
+//   return {
+//     ...currentSceneState,
+//     ...(patch ?? {}),
+//   };
+// }
 
 function cloneContext(
   context: LearningTraversalContext,
@@ -237,20 +252,22 @@ function traverseLearningPath(
         const nextContext = cloneContext(currentContext);
 
         const stateEffects = inferStateEffectsFromChoice(node.id, choice);
-        
+        const applyTiming =
+          choice.stateApplyTiming ?? getDefaultApplyTiming(nextContext);
+
         nextContext.decisionRules[node.id] = {
           correctChoiceId: choice.choiceId,
-          stateEffects,
         };
+
+        nextContext.sceneState = mergeSceneStateEntries(
+          nextContext.sceneState,
+          stateEffects,
+          applyTiming,
+          node.id,
+        );
         
-        // Only initial, pre-context-patch decisions define the starting slice setup.
         if (!nextContext.isAfterContextPatch) {
           nextContext.branchSelections[node.id] = choice.choiceId;
-        
-          nextContext.sceneState = mergeSceneState(
-            nextContext.sceneState,
-            stateEffects,
-          );
         }
 
         return traverseLearningPath(
@@ -313,6 +330,70 @@ function traverseLearningPath(
   }
 }
 
+// Section: Filter out learning slices that are covered by notification rules in other slices.
+function createBranchSelectionKey(nodeId: string, choiceId: string) {
+  return `${nodeId}=${choiceId}`;
+}
+
+function getCoveredBranchSelectionKeys(slices: LearningSlice[]) {
+  const coveredKeys = new Set<string>();
+
+  for (const slice of slices) {
+    for (const rule of Object.values(slice.notificationRules)) {
+      const branchSelections = rule.contextPatch?.branchSelections;
+
+      if (!branchSelections) {
+        continue;
+      }
+
+      for (const [nodeId, choiceId] of Object.entries(branchSelections)) {
+        coveredKeys.add(createBranchSelectionKey(nodeId, choiceId));
+      }
+    }
+  }
+
+  return coveredKeys;
+}
+
+function sliceHasCoveredInitialBranchSelection(
+  slice: LearningSlice,
+  coveredKeys: Set<string>,
+) {
+  return Object.entries(slice.branchSelections).some(([nodeId, choiceId]) =>
+    coveredKeys.has(createBranchSelectionKey(nodeId, choiceId)),
+  );
+}
+
+function sliceContainsNotificationRule(slice: LearningSlice) {
+  return Object.keys(slice.notificationRules).length > 0;
+}
+
+function filterLearningSlicesCoveredByNotifications(slices: LearningSlice[]) {
+  const coveredKeys = getCoveredBranchSelectionKeys(slices);
+
+  if (coveredKeys.size === 0) {
+    return slices;
+  }
+
+  return slices.filter((slice) => {
+    const isCoveredStandaloneBranch =
+      sliceHasCoveredInitialBranchSelection(slice, coveredKeys);
+
+    if (!isCoveredStandaloneBranch) {
+      return true;
+    }
+
+    // Keep teaching slices that actually contain notification behavior.
+    // Remove standalone slices for branches already covered by a notification.
+    if (sliceContainsNotificationRule(slice)) {
+      return true;
+    }
+
+    return false;
+  });
+}
+// End Section: Filter out learning slices that are covered by notification rules in other slices.
+
 export function compileLearningSlices(
   nodes: Node<AuthoringNodeData>[],
   edges: Edge[],
@@ -329,13 +410,15 @@ export function compileLearningSlices(
     isAfterContextPatch: false,
   };
 
-  const slices = traverseLearningPath(
+  const rawSlices = traverseLearningPath(
     startNodeId,
     nodes,
     edges,
     initialContext,
     startNodeId,
   );
+
+  const slices = filterLearningSlicesCoveredByNotifications(rawSlices); // Exclude slices that are covered by notification rules in other slices.
 
   return {
     scenarioId,

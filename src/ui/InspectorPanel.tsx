@@ -89,6 +89,7 @@ function choicesToText(choices?: AuthoringChoiceData[]) {
           choice.styleKey ?? '',
           choice.iconKey ?? '',
           stateEffectsToText(choice.stateEffects),
+          choice.stateApplyTiming ?? '',
         ].join('; '),
       )
       .join('\n') ?? ''
@@ -101,9 +102,14 @@ function textToChoices(value: string): AuthoringChoiceData[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [choiceId, labelKey, styleKey, iconKey, stateEffectsText] = line
-        .split(';')
-        .map((part) => part.trim());
+      const [
+        choiceId,
+        labelKey,
+        styleKey,
+        iconKey,
+        stateEffectsText,
+        stateApplyTiming,
+      ] = line.split(';').map((part) => part.trim());
 
       return {
         choiceId,
@@ -111,6 +117,12 @@ function textToChoices(value: string): AuthoringChoiceData[] {
         styleKey,
         iconKey,
         stateEffects: textToStateEffects(stateEffectsText ?? ''),
+        // Narrow to the expected typed literal union
+        stateApplyTiming:
+          stateApplyTiming === 'AtSliceStart' ||
+          stateApplyTiming === 'OnSourceNodeReached'
+            ? (stateApplyTiming as AuthoringChoiceData['stateApplyTiming'])
+            : undefined,
       };
     })
     .filter((choice) => Boolean(choice.choiceId));
@@ -364,17 +376,18 @@ export function InspectorPanel({
               onChange={(event) => updateChoices(event.target.value)}
               rows={7}
               placeholder={
-                'choiceId; labelKey; styleKey; iconKey; stateEffects\n' +
-                'yes; Yes; positive; icon.walking; isStandingOrWalking=true\n' +
-                'no; No; negative; icon.not_walking; isStandingOrWalking=false'
+              'choiceId; labelKey; styleKey; iconKey; stateEffects; applyTiming\n' +
+              'yes; Yes; positive; icon.walking; isStandingOrWalking=true; AtSliceStart\n' +
+              'no; No; negative; icon.not_walking; isStandingOrWalking=false; AtSliceStart'
               }
             />
           </label>
 
-          <p className="inspector-help">
-            Each line is: choiceId; labelKey; styleKey; iconKey; stateEffects.
-            State effects are optional and use comma-separated key=value pairs.
-          </p>
+        <p className="inspector-help">
+          Each line is: choiceId; labelKey; styleKey; iconKey; stateEffects;
+          applyTiming. State effects are optional. Apply timing is optional and can be
+          AtSliceStart or OnSourceNodeReached.
+        </p>
         </div>
       )}
 

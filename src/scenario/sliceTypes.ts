@@ -1,3 +1,17 @@
+export type PrimitiveSliceStateValue = string | number | boolean;
+
+export type SliceStateApplyTiming =
+  | 'AtSliceStart'
+  | 'OnSourceNodeReached';
+
+export type SliceSceneStateEntry = {
+  value: PrimitiveSliceStateValue;
+  applyTiming: SliceStateApplyTiming;
+  sourceNodeId: string;
+};
+
+export type SliceSceneState = Record<string, SliceSceneStateEntry>;
+
 export type PracticeSlicePackage = {
   scenarioId: string;
   mode: 'practice';
@@ -10,12 +24,13 @@ export type PracticeSlice = {
   mode: 'practice';
   title: string;
   branchSelections: Record<string, string>;
-  sceneState: Record<string, string | number | boolean>;
+  sceneState: SliceSceneState;
   steps: PracticeStep[];
 };
 
 export type PracticeStep = {
   nodeId: string;
+  stateRevealNodeIds: string[];
 };
 
 export type LearningSlicePackage = {
@@ -32,7 +47,7 @@ export type LearningSlice = {
   startNodeId: string;
 
   branchSelections: Record<string, string>;
-  sceneState: Record<string, string | number | boolean>;
+  sceneState: SliceSceneState;
 
   decisionRules: Record<string, LearningDecisionRule>;
   notificationRules: Record<string, LearningNotificationRule>;
@@ -42,13 +57,14 @@ export type LearningSlice = {
 
 export type LearningDecisionRule = {
   correctChoiceId: string;
-  stateEffects?: Record<string, string | number | boolean>;
 };
 
 export type LearningNotificationRule = {
   nextNodeId?: string;
   contextPatch?: {
     branchSelections?: Record<string, string>;
-    sceneState?: Record<string, string | number | boolean>;
+
+    // raw/simple inside notification contextPatch for now
+    sceneState?: Record<string, PrimitiveSliceStateValue>;
   };
 };
