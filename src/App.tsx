@@ -20,6 +20,13 @@ import { InspectorPanel } from './ui/InspectorPanel';
 import { compileScenarioDefinition } from './scenario/compileScenarioDefinition';
 import { compilePracticeSlices } from './scenario/compilePracticeSlices';
 import { compileLearningSlices } from './scenario/compileLearningSlices';
+import { useMemo, useState } from 'react';
+import {
+  buildSlicePreviewGraph,
+  type SlicePackage,
+  type SlicePreviewNodeInfo,
+} from './scenario/slicePreview';
+import { SliceManagerPanel } from './ui/SliceManagerPanel';
 
 import './App.css';
 
@@ -63,6 +70,29 @@ function sanitizeFileName(value: string) {
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // State for managing the slice preview mode and the currently loaded slice package
+  const [slicePackage, setSlicePackage] = useState<SlicePackage | null>(null);
+  const [isSlicePreviewMode, setIsSlicePreviewMode] = useState(false);
+  const [selectedSlicePreviewInfo, setSelectedSlicePreviewInfo] = useState<SlicePreviewNodeInfo | null>(null);
+  
+  const slicePreviewGraph = useMemo(() => {
+    if (!slicePackage) {
+      return {
+        nodes: [],
+        edges: [],
+      };
+    }
+  
+    return buildSlicePreviewGraph(slicePackage, nodes);
+  }, [slicePackage, nodes]);
+  
+  const displayedNodes =
+    isSlicePreviewMode && slicePackage ? (slicePreviewGraph.nodes as typeof nodes) : nodes;
+  
+  const displayedEdges =
+    isSlicePreviewMode && slicePackage ? (slicePreviewGraph.edges as typeof edges) : edges;
+  // End of slice preview state management
 
   const selectedNode =
     nodes.find((node) => node.selected) as Node<AuthoringNodeData> | undefined;
@@ -350,6 +380,159 @@ export default function App() {
     downloadJson(`${scenarioId}.learning_slices.json`, learningSlices);
   }
 
+  function loadSlicesFromFile(file: File) {
+    const reader = new FileReader();
+  
+    reader.onload = () => {
+      try {
+        const text = String(reader.result);
+        const parsed = JSON.parse(text) as SlicePackage;
+  
+        if (
+          parsed.mode !== 'practice' &&
+          parsed.mode !== 'learning'
+        ) {
+          alert('This is not a valid practice or learning slices file.');
+          return;
+        }
+  
+        if (!Array.isArray(parsed.slices)) {
+          alert('Slices file does not contain a valid slices array.');
+          return;
+        }
+  
+        setSlicePackage(parsed);
+        setIsSlicePreviewMode(true);
+        setSelectedSlicePreviewInfo(null);
+      } catch (error) {
+        console.error(error);
+        alert('Failed to load slices JSON file.');
+      }
+    };
+  
+    reader.readAsText(file);
+  }
+  
+  function openLoadSlicesDialog() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+  
+    input.onchange = () => {
+      const file = input.files?.[0];
+  
+      if (!file) {
+        return;
+      }
+  
+      loadSlicesFromFile(file);
+    };
+  
+    input.click();
+  }
+
+  // Section: Functions for updating slice titles and exporting updated slices
+  function updateSliceTitle(sliceId: string, title: string) {
+    setSlicePackage((currentPackage) => {
+      if (!currentPackage) {
+        return currentPackage;
+      }
+  
+      return {
+        ...currentPackage,
+        slices: currentPackage.slices.map((slice) => {
+          if (slice.sliceId !== sliceId) {
+            return slice;
+          }
+  
+          return {
+            ...slice,
+            title,
+          };
+        }),
+      } as SlicePackage;
+    });
+  }
+  
+  function exportUpdatedSlicesJson() {
+    if (!slicePackage) {
+      alert('No slice package loaded.');
+      return;
+    }
+  
+    const fileName = `${slicePackage.scenarioId}.${slicePackage.mode}_slices.updated.json`;
+  
+    downloadJson(fileName, slicePackage);
+  }
+  
+  function closeSlicePreview() {
+    setIsSlicePreviewMode(false);
+    setSelectedSlicePreviewInfo(null);
+  }
+
+  function updateSliceId(oldSliceId: string, newSliceId: string) {
+    const trimmedNewSliceId = newSliceId.trim();
+  
+    if (!trimmedNewSliceId) {
+      return;
+    }
+  
+    setSlicePackage((currentPackage) => {
+      if (!currentPackage) {
+        return currentPackage;
+      }
+  
+      const alreadyExists = currentPackage.slices.some(
+        (slice) =>
+          slice.sliceId === trimmedNewSliceId &&
+          slice.sliceId !== oldSliceId,
+      );
+  
+      if (alreadyExists) {
+        alert(`Slice ID already exists: ${trimmedNewSliceId}`);
+        return currentPackage;
+      }
+  
+      return {
+        ...currentPackage,
+        slices: currentPackage.slices.map((slice) => {
+          if (slice.sliceId !== oldSliceId) {
+            return slice;
+          }
+  
+          return {
+            ...slice,
+            sliceId: trimmedNewSliceId,
+          };
+        }),
+      } as SlicePackage;
+    });
+  
+    setSelectedSlicePreviewInfo((currentInfo) => {
+      if (!currentInfo || currentInfo.sliceId !== oldSliceId) {
+        return currentInfo;
+      }
+  
+      return {
+        ...currentInfo,
+        sliceId: trimmedNewSliceId,
+      };
+    });
+  }
+
+  function handleNodeClick(_: React.MouseEvent, clickedNode: Node) {
+    if (!isSlicePreviewMode) {
+      return;
+    }
+  
+    const previewInfo = clickedNode.data?.previewInfo as
+      | SlicePreviewNodeInfo
+      | undefined;
+  
+    setSelectedSlicePreviewInfo(previewInfo ?? null);
+  }
+  // End Section: Functions for updating slice titles and exporting updated slices
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -370,31 +553,57 @@ export default function App() {
           onExportScenarioJson={exportScenarioJson}
           onExportPracticeSlicesJson={exportPracticeSlicesJson}
           onExportLearningSlicesJson={exportLearningSlicesJson}
+          onLoadSlicesClick={openLoadSlicesDialog}
+          isSlicePreviewMode={isSlicePreviewMode}
         />
       </header>
 
       <div className="editor-body">
         <main className="flow-wrapper">
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
+            nodes={displayedNodes}
+            edges={displayedEdges}
             nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            deleteKeyCode={['Backspace', 'Delete']}
+            onNodesChange={isSlicePreviewMode ? undefined : onNodesChange}
+            onEdgesChange={isSlicePreviewMode ? undefined : onEdgesChange}
+            onConnect={isSlicePreviewMode ? undefined : onConnect}
+            onNodeClick={handleNodeClick}
+            nodesDraggable={!isSlicePreviewMode}
+            nodesConnectable={!isSlicePreviewMode}
+            elementsSelectable
+            deleteKeyCode={isSlicePreviewMode ? [] : ['Backspace', 'Delete']}
             fitView
           >
             <Background />
-            <MiniMap />
+            <MiniMap
+              nodeColor={(node) =>
+                typeof node.data?.miniMapColor === 'string'
+                  ? node.data.miniMapColor
+                  : '#94a3b8'
+              }
+              nodeStrokeWidth={3}
+              zoomable
+              pannable
+            />
             <Controls />
           </ReactFlow>
         </main>
 
+      {isSlicePreviewMode ? (
+        <SliceManagerPanel
+          slicePackage={slicePackage}
+          selectedPreviewInfo={selectedSlicePreviewInfo}
+          onUpdateSliceId={updateSliceId}
+          onUpdateSliceTitle={updateSliceTitle}
+          onExportUpdatedSlices={exportUpdatedSlicesJson}
+          onClosePreview={closeSlicePreview}
+        />
+      ) : (
         <InspectorPanel
           selectedNode={selectedNode ?? null}
           onUpdateNodeData={updateNodeData}
         />
+      )}
       </div>
     </div>
   );

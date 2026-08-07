@@ -12,6 +12,9 @@ type ToolbarProps = {
   onExportScenarioJson: () => void;
   onExportPracticeSlicesJson: () => void;
   onExportLearningSlicesJson: () => void;
+
+  onLoadSlicesClick: () => void;
+  isSlicePreviewMode: boolean;
 };
 
 export function Toolbar({
@@ -26,26 +29,42 @@ export function Toolbar({
   onExportScenarioJson,
   onExportPracticeSlicesJson,
   onExportLearningSlicesJson,
+  onLoadSlicesClick,
+  isSlicePreviewMode,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
-      <button onClick={onAddAction}>+ Action</button>
-      <button onClick={onAddYesNoDecision}>+ Yes/No Decision</button>
-      <button onClick={onAddDialogueDecision}>+ Dialogue Decision</button>
-      <button onClick={onAddNotification}>+ Notification</button>
-      <button onClick={onAddEnd}>+ End</button>
+      {!isSlicePreviewMode && (
+        <>
+          <button onClick={onAddAction}>+ Action</button>
+          <button onClick={onAddYesNoDecision}>+ Yes/No Decision</button>
+          <button onClick={onAddDialogueDecision}>+ Dialogue Decision</button>
+          <button onClick={onAddNotification}>+ Notification</button>
+          <button onClick={onAddEnd}>+ End</button>
+
+          <span className="toolbar-divider" />
+
+          <button onClick={onSaveDiagram}>Save Diagram</button>
+          <button onClick={onLoadDiagramClick}>Load Diagram</button>
+          <button onClick={onClearDiagram}>Clear</button>
+
+          <span className="toolbar-divider" />
+
+          <button onClick={onExportScenarioJson}>
+            Export Scenario JSON
+          </button>
+          <button onClick={onExportPracticeSlicesJson}>
+            Export Practice Slices
+          </button>
+          <button onClick={onExportLearningSlicesJson}>
+            Export Learning Slices
+          </button>
+        </>
+      )}
 
       <span className="toolbar-divider" />
 
-      <button onClick={onSaveDiagram}>Save Diagram</button>
-      <button onClick={onLoadDiagramClick}>Load Diagram</button>
-      <button onClick={onClearDiagram}>Clear</button>
-
-      <span className="toolbar-divider" />
-
-      <button onClick={onExportScenarioJson}>Export Scenario JSON</button>
-      <button onClick={onExportPracticeSlicesJson}>Export Practice Slices</button>
-      <button onClick={onExportLearningSlicesJson}>Export Learning Slices</button>
+      <button onClick={onLoadSlicesClick}>Load Slices JSON</button>
     </div>
   );
 }
