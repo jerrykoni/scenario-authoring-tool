@@ -9,6 +9,8 @@ type ToolbarProps = {
   onLoadDiagramClick: () => void;
   onClearDiagram: () => void;
 
+  onEditScenarioSettings: () => void;
+
   onExportScenarioJson: () => void;
   onExportPracticeSlicesJson: () => void;
   onExportLearningSlicesJson: () => void;
@@ -26,6 +28,7 @@ export function Toolbar({
   onSaveDiagram,
   onLoadDiagramClick,
   onClearDiagram,
+  onEditScenarioSettings,
   onExportScenarioJson,
   onExportPracticeSlicesJson,
   onExportLearningSlicesJson,
@@ -47,6 +50,7 @@ export function Toolbar({
           <button onClick={onSaveDiagram}>Save Diagram</button>
           <button onClick={onLoadDiagramClick}>Load Diagram</button>
           <button onClick={onClearDiagram}>Clear</button>
+          <button onClick={onEditScenarioSettings}>Scenario Settings</button>
 
           <span className="toolbar-divider" />
 

@@ -393,6 +393,24 @@ export function InspectorPanel({
 
       {data.kind === 'notification' && (
         <div className="inspector-section">
+          <h3>Learning Breakpoint</h3>
+
+          <label>
+            Learning Break Title
+            <input
+              value={data.learningBreakTitle ?? ''}
+              onChange={(event) =>
+                updateField('learningBreakTitle', event.target.value)
+              }
+              placeholder="Example: Defibrillator Placement"
+            />
+          </label>
+
+          <p className="inspector-help">
+            If this field is filled, learning slice generation ends the current slice
+            at this notification and starts a new learning slice from the continuation.
+          </p>
+
           <h3>Context Patch</h3>
 
           <label>
@@ -406,8 +424,8 @@ export function InspectorPanel({
           </label>
 
           <p className="inspector-help">
-            Each line is: decisionNodeId = choiceId. The exporter will later
-            infer sceneState from these branch selections.
+            Each line is: decisionNodeId = choiceId. The exporter will infer sceneState
+            from these branch selections.
           </p>
         </div>
       )}

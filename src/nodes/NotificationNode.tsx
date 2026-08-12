@@ -36,6 +36,12 @@ export function NotificationNode({ data }: NodeProps) {
               <strong>instruction:</strong> {nodeData.instructionKey}
             </div>
           )}
+
+          {nodeData.learningBreakTitle && (
+            <div>
+              <strong>break:</strong> {nodeData.learningBreakTitle}
+            </div>
+          )}
         </div>
 
         {nodeData.iconKeys && nodeData.iconKeys.length > 0 && (

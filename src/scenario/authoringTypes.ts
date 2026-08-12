@@ -51,6 +51,9 @@ export type AuthoringNodeData = {
 
   contextPatch?: ContextPatch;
 
+  // If filled on a NotificationNode, the learning generator cuts the slice here.
+  learningBreakTitle?: string;
+
   outcomeId?: string;
   endScenario?: boolean;
   durationSeconds?: number;

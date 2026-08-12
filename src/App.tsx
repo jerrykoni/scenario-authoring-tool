@@ -17,7 +17,10 @@ import { initialEdges, initialNodes } from './scenario/sampleGraph';
 import type { AuthoringNodeData } from './scenario/authoringTypes';
 import { Toolbar } from './ui/Toolbar';
 import { InspectorPanel } from './ui/InspectorPanel';
-import { compileScenarioDefinition } from './scenario/compileScenarioDefinition';
+import { 
+  compileScenarioDefinition,
+  type ScenarioMetadata,
+} from './scenario/compileScenarioDefinition';
 import { compilePracticeSlices } from './scenario/compilePracticeSlices';
 import { compileLearningSlices } from './scenario/compileLearningSlices';
 import { useMemo, useState } from 'react';
@@ -42,6 +45,7 @@ type AuthoringDiagramFile = {
   fileType: 'scenario-authoring-diagram';
   version: string;
   savedAt: string;
+  scenarioMeta?: ScenarioMetadata;
   nodes: typeof initialNodes;
   edges: typeof initialEdges;
 };
@@ -70,6 +74,17 @@ function sanitizeFileName(value: string) {
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // State for managing the scenario metadata
+  const [scenarioMeta, setScenarioMeta] = useState<ScenarioMetadata>({
+    scenarioId: 'transport_sop_demo_v1',
+    title: 'Transport SOP Demo',
+    version: '0.1.0',
+    language: 'en',
+    domain: 'transport_training',
+    description: 'Transport SOP scenario generated from React Flow authoring graph.',
+    startNodeId: initialNodes[0]?.id ?? '',
+  });
 
   // State for managing the slice preview mode and the currently loaded slice package
   const [slicePackage, setSlicePackage] = useState<SlicePackage | null>(null);
@@ -279,6 +294,7 @@ export default function App() {
       fileType: 'scenario-authoring-diagram',
       version: '0.1.0',
       savedAt: new Date().toISOString(),
+      scenarioMeta,
       nodes,
       edges,
     };
@@ -305,6 +321,16 @@ export default function App() {
 
         setNodes(parsed.nodes);
         setEdges(parsed.edges);
+
+        // If the loaded file contains scenario metadata, use it; otherwise, set a default startNodeId
+        if (parsed.scenarioMeta) {
+          setScenarioMeta(parsed.scenarioMeta);
+        } else {
+          setScenarioMeta((currentMeta) => ({
+            ...currentMeta,
+            startNodeId: parsed.nodes[0]?.id ?? currentMeta.startNodeId,
+          }));
+        }
       } catch (error) {
         console.error(error);
         alert('Failed to load diagram file.');
@@ -338,46 +364,59 @@ export default function App() {
   }
 
   function exportScenarioJson() {
-    const scenario = compileScenarioDefinition(nodes, edges, {
-      scenarioId: 'start_sop_tiny_demo_v1',
-      title: 'START SOP Tiny Demo',
-      version: '0.1.0',
-      language: 'en',
-      domain: 'triage_training',
-      description:
-        'Tiny data-driven START SOP demo generated from React Flow authoring graph.',
-      startNodeId: 'observe_initial_casualty',
-    });
-  
+    const validScenarioMeta = getValidScenarioMetaOrAlert();
+
+    if (!validScenarioMeta) {
+      return;
+    }
+
+    const scenario = compileScenarioDefinition(
+      nodes,
+      edges,
+      validScenarioMeta,
+    );
+
     downloadJson(`${scenario.scenarioId}.scenario.json`, scenario);
   }
 
   function exportPracticeSlicesJson() {
-    const scenarioId = 'start_sop_tiny_demo_v1';
-    const startNodeId = 'observe_initial_casualty';
-  
+    const validScenarioMeta = getValidScenarioMetaOrAlert();
+
+    if (!validScenarioMeta) {
+      return;
+    }
+
     const practiceSlices = compilePracticeSlices(
       nodes,
       edges,
-      scenarioId,
-      startNodeId,
+      validScenarioMeta.scenarioId,
+      validScenarioMeta.startNodeId,
     );
-  
-    downloadJson(`${scenarioId}.practice_slices.json`, practiceSlices);
+
+    downloadJson(
+      `${validScenarioMeta.scenarioId}.practice_slices.json`,
+      practiceSlices,
+    );
   }
 
   function exportLearningSlicesJson() {
-    const scenarioId = 'start_sop_tiny_demo_v1';
-    const startNodeId = 'observe_initial_casualty';
-  
+    const validScenarioMeta = getValidScenarioMetaOrAlert();
+
+    if (!validScenarioMeta) {
+      return;
+    }
+
     const learningSlices = compileLearningSlices(
       nodes,
       edges,
-      scenarioId,
-      startNodeId,
+      validScenarioMeta.scenarioId,
+      validScenarioMeta.startNodeId,
     );
-  
-    downloadJson(`${scenarioId}.learning_slices.json`, learningSlices);
+
+    downloadJson(
+      `${validScenarioMeta.scenarioId}.learning_slices.json`,
+      learningSlices,
+    );
   }
 
   function loadSlicesFromFile(file: File) {
@@ -430,6 +469,89 @@ export default function App() {
   
     input.click();
   }
+
+  // Section: Functions for editing scenario metadata and validating it
+  function promptValue(label: string, currentValue: string) {
+    const value = window.prompt(label, currentValue);
+  
+    if (value === null) {
+      return currentValue;
+    }
+  
+    return value.trim();
+  }
+  
+  function editScenarioSettings() {
+    const nextScenarioId = promptValue(
+      'Scenario ID',
+      scenarioMeta.scenarioId,
+    );
+  
+    const nextTitle = promptValue(
+      'Scenario Title',
+      scenarioMeta.title,
+    );
+  
+    const nextVersion = promptValue(
+      'Version',
+      scenarioMeta.version,
+    );
+  
+    const nextLanguage = promptValue(
+      'Language',
+      scenarioMeta.language,
+    );
+  
+    const nextDomain = promptValue(
+      'Domain',
+      scenarioMeta.domain,
+    );
+  
+    const nextDescription = promptValue(
+      'Description',
+      scenarioMeta.description,
+    );
+  
+    const availableNodeIds = nodes.map((node) => node.id).join(', ');
+  
+    const nextStartNodeId = promptValue(
+      `Start Node ID\nAvailable nodes:\n${availableNodeIds}`,
+      scenarioMeta.startNodeId || nodes[0]?.id || '',
+    );
+  
+    setScenarioMeta({
+      scenarioId: nextScenarioId || scenarioMeta.scenarioId,
+      title: nextTitle || scenarioMeta.title,
+      version: nextVersion || scenarioMeta.version,
+      language: nextLanguage || scenarioMeta.language,
+      domain: nextDomain || scenarioMeta.domain,
+      description: nextDescription || scenarioMeta.description,
+      startNodeId: nextStartNodeId || scenarioMeta.startNodeId,
+    });
+  }
+
+  function getValidScenarioMetaOrAlert() {
+    const startNodeExists = nodes.some(
+      (node) => node.id === scenarioMeta.startNodeId,
+    );
+  
+    if (!startNodeExists) {
+      alert(
+        `Start node "${scenarioMeta.startNodeId}" does not exist.\n\n` +
+          `Open Scenario Settings and choose a valid Start Node ID.`,
+      );
+  
+      return null;
+    }
+  
+    if (!scenarioMeta.scenarioId.trim()) {
+      alert('Scenario ID is empty. Open Scenario Settings and set a scenario ID.');
+      return null;
+    }
+  
+    return scenarioMeta;
+  }
+  // End Section: Functions for editing scenario metadata and validating it
 
   // Section: Functions for updating slice titles and exporting updated slices
   function updateSliceTitle(sliceId: string, title: string) {
@@ -538,7 +660,10 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>Scenario Authoring Tool</h1>
-          <p>Phase 1.7 demo: updated scenario nodes and inspector</p>
+          <p>
+            {scenarioMeta.title} · {scenarioMeta.scenarioId} · start:{' '}
+            {scenarioMeta.startNodeId || 'not set'}
+          </p>
         </div>
 
         <Toolbar
@@ -550,6 +675,7 @@ export default function App() {
           onSaveDiagram={saveDiagram}
           onLoadDiagramClick={openLoadDialog}
           onClearDiagram={clearDiagram}
+          onEditScenarioSettings={editScenarioSettings}
           onExportScenarioJson={exportScenarioJson}
           onExportPracticeSlicesJson={exportPracticeSlicesJson}
           onExportLearningSlicesJson={exportLearningSlicesJson}
