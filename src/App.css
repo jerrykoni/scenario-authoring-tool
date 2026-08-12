@@ -19,6 +19,7 @@ body,
   padding: 0 20px;
   display: flex;
   align-items: center;
+  gap: 16px;
   background: #0f172a;
   color: white;
   border-bottom: 1px solid #1e293b;

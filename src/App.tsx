@@ -8,6 +8,7 @@ import {
   useNodesState,
   type Connection,
   type Node,
+  type Edge,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
@@ -103,11 +104,36 @@ function getNodeIdPrefix(kind: AuthoringNodeData['kind']) {
   }
 }
 
+// Creates a node ID based on the kind and title
 function createNodeIdFromTitle(kind: AuthoringNodeData['kind'], title: string) {
   const prefix = getNodeIdPrefix(kind);
   const slug = slugifyTitle(title);
 
   return slug ? `${prefix}_${slug}` : `${prefix}_untitled`;
+}
+
+// Function to infer the start node ID based on the graph structure
+function inferStartNodeId(
+  nodes: Node<AuthoringNodeData>[],
+  edges: Edge[],
+) {
+  const targetNodeIds = new Set(edges.map((edge) => edge.target));
+
+  const nodesWithoutIncomingEdges = nodes.filter(
+    (node) => !targetNodeIds.has(node.id),
+  );
+
+  if (nodesWithoutIncomingEdges.length !== 1) {
+    return {
+      startNodeId: null,
+      candidates: nodesWithoutIncomingEdges.map((node) => node.id),
+    };
+  }
+
+  return {
+    startNodeId: nodesWithoutIncomingEdges[0].id,
+    candidates: nodesWithoutIncomingEdges.map((node) => node.id),
+  };
 }
 
 function createUniqueNodeId(
@@ -139,14 +165,16 @@ export default function App() {
 
   // State for managing the scenario metadata
   const [scenarioMeta, setScenarioMeta] = useState<ScenarioMetadata>({
-    scenarioId: 'transport_sop_demo_v1',
-    title: 'Transport SOP Demo',
-    version: '0.1.0',
-    language: 'en',
-    domain: 'transport_training',
-    description: 'Transport SOP scenario generated from React Flow authoring graph.',
-    startNodeId: initialNodes[0]?.id ?? '',
+    scenarioId: 'demo',
+    title: '',
+    version: '',
+    language: '',
+    domain: '',
+    description: '',
+    startNodeId: '',
   });
+
+  // const inferredStartNode = inferStartNodeId(nodes, edges).startNodeId;
 
   // State for managing the slice preview mode and the currently loaded slice package
   const [slicePackage, setSlicePackage] = useState<SlicePackage | null>(null);
@@ -619,85 +647,62 @@ export default function App() {
   }
 
   // Section: Functions for editing scenario metadata and validating it
-  function promptValue(label: string, currentValue: string) {
-    const value = window.prompt(label, currentValue);
+  // function promptValue(label: string, currentValue: string) {
+  //   const value = window.prompt(label, currentValue);
   
-    if (value === null) {
-      return currentValue;
-    }
+  //   if (value === null) {
+  //     return currentValue;
+  //   }
   
-    return value.trim();
-  }
+  //   return value.trim();
+  // }
   
   function editScenarioSettings() {
-    const nextScenarioId = promptValue(
+    const nextScenarioId = window.prompt(
       'Scenario ID',
       scenarioMeta.scenarioId,
     );
-  
-    const nextTitle = promptValue(
-      'Scenario Title',
-      scenarioMeta.title,
-    );
-  
-    const nextVersion = promptValue(
-      'Version',
-      scenarioMeta.version,
-    );
-  
-    const nextLanguage = promptValue(
-      'Language',
-      scenarioMeta.language,
-    );
-  
-    const nextDomain = promptValue(
-      'Domain',
-      scenarioMeta.domain,
-    );
-  
-    const nextDescription = promptValue(
-      'Description',
-      scenarioMeta.description,
-    );
-  
-    const availableNodeIds = nodes.map((node) => node.id).join(', ');
-  
-    const nextStartNodeId = promptValue(
-      `Start Node ID\nAvailable nodes:\n${availableNodeIds}`,
-      scenarioMeta.startNodeId || nodes[0]?.id || '',
-    );
-  
-    setScenarioMeta({
-      scenarioId: nextScenarioId || scenarioMeta.scenarioId,
-      title: nextTitle || scenarioMeta.title,
-      version: nextVersion || scenarioMeta.version,
-      language: nextLanguage || scenarioMeta.language,
-      domain: nextDomain || scenarioMeta.domain,
-      description: nextDescription || scenarioMeta.description,
-      startNodeId: nextStartNodeId || scenarioMeta.startNodeId,
-    });
+
+    if (nextScenarioId === null) {
+      return;
+    }
+
+    setScenarioMeta((currentMeta) => ({
+      ...currentMeta,
+      scenarioId: nextScenarioId.trim() || currentMeta.scenarioId,
+    }));
   }
 
   function getValidScenarioMetaOrAlert() {
-    const startNodeExists = nodes.some(
-      (node) => node.id === scenarioMeta.startNodeId,
-    );
-  
-    if (!startNodeExists) {
-      alert(
-        `Start node "${scenarioMeta.startNodeId}" does not exist.\n\n` +
-          `Open Scenario Settings and choose a valid Start Node ID.`,
-      );
-  
-      return null;
-    }
-  
     if (!scenarioMeta.scenarioId.trim()) {
       alert('Scenario ID is empty. Open Scenario Settings and set a scenario ID.');
       return null;
     }
-  
-    return scenarioMeta;
+
+    const inferredStart = inferStartNodeId(nodes, edges);
+
+    if (!inferredStart.startNodeId) {
+      alert(
+        'Could not infer a unique start node.\n\n' +
+          'The start node is inferred as the only node with no incoming edge.\n\n' +
+          `Found ${inferredStart.candidates.length} candidates:\n` +
+          `${inferredStart.candidates.join('\n') || '(none)'}`,
+      );
+
+      return null;
+    }
+
+    return {
+      ...scenarioMeta,
+      title: scenarioMeta.title || scenarioMeta.scenarioId,
+      version: scenarioMeta.version || '0.1.0',
+      language: scenarioMeta.language || 'en',
+      domain: scenarioMeta.domain || '',
+      description:
+        scenarioMeta.description ||
+        `${scenarioMeta.scenarioId} generated from React Flow authoring graph.`,
+      startNodeId: inferredStart.startNodeId,
+    };
   }
   // End Section: Functions for editing scenario metadata and validating it
 
@@ -707,20 +712,33 @@ export default function App() {
       if (!currentPackage) {
         return currentPackage;
       }
-  
+
       return {
         ...currentPackage,
         slices: currentPackage.slices.map((slice) => {
           if (slice.sliceId !== sliceId) {
             return slice;
           }
-  
+
           return {
             ...slice,
             title,
+            sliceId: title,
           };
         }),
       } as SlicePackage;
+    });
+
+    setSelectedSlicePreviewInfo((currentInfo) => {
+      if (!currentInfo || currentInfo.sliceId !== sliceId) {
+        return currentInfo;
+      }
+
+      return {
+        ...currentInfo,
+        sliceId: title,
+        title,
+      };
     });
   }
   
@@ -740,55 +758,56 @@ export default function App() {
     setSelectedSlicePreviewInfo(null);
   }
 
-  function updateSliceId(oldSliceId: string, newSliceId: string) {
-    const trimmedNewSliceId = newSliceId.trim();
+  // to be retired
+  // function updateSliceId(oldSliceId: string, newSliceId: string) {
+  //   const trimmedNewSliceId = newSliceId.trim();
   
-    if (!trimmedNewSliceId) {
-      return;
-    }
+  //   if (!trimmedNewSliceId) {
+  //     return;
+  //   }
   
-    setSlicePackage((currentPackage) => {
-      if (!currentPackage) {
-        return currentPackage;
-      }
+  //   setSlicePackage((currentPackage) => {
+  //     if (!currentPackage) {
+  //       return currentPackage;
+  //     }
   
-      const alreadyExists = currentPackage.slices.some(
-        (slice) =>
-          slice.sliceId === trimmedNewSliceId &&
-          slice.sliceId !== oldSliceId,
-      );
+  //     const alreadyExists = currentPackage.slices.some(
+  //       (slice) =>
+  //         slice.sliceId === trimmedNewSliceId &&
+  //         slice.sliceId !== oldSliceId,
+  //     );
   
-      if (alreadyExists) {
-        alert(`Slice ID already exists: ${trimmedNewSliceId}`);
-        return currentPackage;
-      }
+  //     if (alreadyExists) {
+  //       alert(`Slice ID already exists: ${trimmedNewSliceId}`);
+  //       return currentPackage;
+  //     }
   
-      return {
-        ...currentPackage,
-        slices: currentPackage.slices.map((slice) => {
-          if (slice.sliceId !== oldSliceId) {
-            return slice;
-          }
+  //     return {
+  //       ...currentPackage,
+  //       slices: currentPackage.slices.map((slice) => {
+  //         if (slice.sliceId !== oldSliceId) {
+  //           return slice;
+  //         }
   
-          return {
-            ...slice,
-            sliceId: trimmedNewSliceId,
-          };
-        }),
-      } as SlicePackage;
-    });
+  //         return {
+  //           ...slice,
+  //           sliceId: trimmedNewSliceId,
+  //         };
+  //       }),
+  //     } as SlicePackage;
+  //   });
   
-    setSelectedSlicePreviewInfo((currentInfo) => {
-      if (!currentInfo || currentInfo.sliceId !== oldSliceId) {
-        return currentInfo;
-      }
+  //   setSelectedSlicePreviewInfo((currentInfo) => {
+  //     if (!currentInfo || currentInfo.sliceId !== oldSliceId) {
+  //       return currentInfo;
+  //     }
   
-      return {
-        ...currentInfo,
-        sliceId: trimmedNewSliceId,
-      };
-    });
-  }
+  //     return {
+  //       ...currentInfo,
+  //       sliceId: trimmedNewSliceId,
+  //     };
+  //   });
+  // }
 
   function handleNodeClick(_: React.MouseEvent, clickedNode: Node) {
     if (!isSlicePreviewMode) {
@@ -807,11 +826,11 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <h1>Scenario Authoring Tool</h1>
-          <p>
+          <h1>{scenarioMeta.scenarioId}</h1>
+          {/* <p>
             {scenarioMeta.title} · {scenarioMeta.scenarioId} · start:{' '}
-            {scenarioMeta.startNodeId || 'not set'}
-          </p>
+            {inferredStartNode ?? 'not found'}
+          </p> */}
         </div>
 
         <Toolbar
@@ -867,7 +886,6 @@ export default function App() {
         <SliceManagerPanel
           slicePackage={slicePackage}
           selectedPreviewInfo={selectedSlicePreviewInfo}
-          onUpdateSliceId={updateSliceId}
           onUpdateSliceTitle={updateSliceTitle}
           onExportUpdatedSlices={exportUpdatedSlicesJson}
           onClosePreview={closeSlicePreview}

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type {
   SlicePackage,
   SlicePreviewNodeInfo,
@@ -6,7 +7,6 @@ import type {
 type SliceManagerPanelProps = {
   slicePackage: SlicePackage | null;
   selectedPreviewInfo: SlicePreviewNodeInfo | null;
-  onUpdateSliceId: (oldSliceId: string, newSliceId: string) => void;
   onUpdateSliceTitle: (sliceId: string, title: string) => void;
   onExportUpdatedSlices: () => void;
   onClosePreview: () => void;
@@ -23,11 +23,27 @@ function formatValue(value: unknown) {
 export function SliceManagerPanel({
   slicePackage,
   selectedPreviewInfo,
-  onUpdateSliceId,
   onUpdateSliceTitle,
   onExportUpdatedSlices,
   onClosePreview,
 }: SliceManagerPanelProps) {
+  const [titleDrafts, setTitleDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!slicePackage) {
+      setTitleDrafts({});
+      return;
+    }
+
+    const nextDrafts: Record<string, string> = {};
+
+    slicePackage.slices.forEach((slice) => {
+      nextDrafts[slice.sliceId] = slice.title;
+    });
+
+    setTitleDrafts(nextDrafts);
+  }, [slicePackage]);
+
   if (!slicePackage) {
     return (
       <aside className="slice-panel">
@@ -35,6 +51,29 @@ export function SliceManagerPanel({
         <p className="inspector-empty">Load a slice JSON file to preview it.</p>
       </aside>
     );
+  }
+
+  function updateDraft(sliceId: string, value: string) {
+    setTitleDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [sliceId]: value,
+    }));
+  }
+
+  function commitDraft(sliceId: string) {
+    const draftTitle = titleDrafts[sliceId];
+
+    if (draftTitle === undefined) {
+      return;
+    }
+
+    const trimmedTitle = draftTitle.trim();
+
+    if (!trimmedTitle) {
+      return;
+    }
+
+    onUpdateSliceTitle(sliceId, trimmedTitle);
   }
 
   return (
@@ -116,7 +155,8 @@ export function SliceManagerPanel({
                 <div>
                   <small>Branch selections</small>
                   {Object.entries(
-                    selectedPreviewInfo.notificationContextPatch.branchSelections,
+                    selectedPreviewInfo.notificationContextPatch
+                      .branchSelections,
                   ).map(([nodeId, choiceId]) => (
                     <div key={nodeId}>
                       <code>{nodeId}</code> = {choiceId}
@@ -143,32 +183,32 @@ export function SliceManagerPanel({
       )}
 
       <div className="slice-panel__list">
-        {slicePackage.slices.map((slice, index) => (
-          <div key={slice.sliceId} className="slice-panel__item">
-            <div className="slice-panel__index">#{index + 1}</div>
+        {slicePackage.slices.map((slice, index) => {
+          const draftTitle = titleDrafts[slice.sliceId] ?? slice.title;
 
-            <label>
-              Slice ID
-              <input
-                value={slice.sliceId}
-                onChange={(event) =>
-                  onUpdateSliceId(slice.sliceId, event.target.value)
-                }
-              />
-            </label>
+          return (
+            <div key={index} className="slice-panel__item">
+              <div className="slice-panel__index">#{index + 1}</div>
 
-            <label>
-              Title
-              <textarea
-                value={slice.title}
-                onChange={(event) =>
-                  onUpdateSliceTitle(slice.sliceId, event.target.value)
-                }
-                rows={2}
-              />
-            </label>
-          </div>
-        ))}
+              <label>
+                Slice ID
+                <input value={draftTitle} disabled />
+              </label>
+
+              <label>
+                Title
+                <textarea
+                  value={draftTitle}
+                  onChange={(event) =>
+                    updateDraft(slice.sliceId, event.target.value)
+                  }
+                  onBlur={() => commitDraft(slice.sliceId)}
+                  rows={2}
+                />
+              </label>
+            </div>
+          );
+        })}
       </div>
     </aside>
   );
