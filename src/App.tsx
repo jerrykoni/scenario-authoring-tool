@@ -33,13 +33,14 @@ import { SliceManagerPanel } from './ui/SliceManagerPanel';
 
 import './App.css';
 
-let createdNodeCounter = 1;
+//to be retired
+// let createdNodeCounter = 1;
 
-function createNodeId(prefix: string) {
-  const id = `${prefix}_${createdNodeCounter}`;
-  createdNodeCounter += 1;
-  return id;
-}
+// function createNodeId(prefix: string) {
+//   const id = `${prefix}_${createdNodeCounter}`;
+//   createdNodeCounter += 1;
+//   return id;
+// }
 
 type AuthoringDiagramFile = {
   fileType: 'scenario-authoring-diagram';
@@ -70,6 +71,67 @@ function sanitizeFileName(value: string) {
     .replace(/[^a-zA-Z0-9._-]/g, '')
     .replace(/_+/g, '_');
 }
+
+// Section: Functions for generating unique node IDs based on title and kind
+function slugifyTitle(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+}
+
+function getNodeIdPrefix(kind: AuthoringNodeData['kind']) {
+  switch (kind) {
+    case 'action':
+      return 'a';
+
+    case 'yesNoDecision':
+    case 'dialogueDecision':
+      return 'd';
+
+    case 'notification':
+      return 'n';
+
+    case 'end':
+      return 'e';
+
+    default:
+      return 'node';
+  }
+}
+
+function createNodeIdFromTitle(kind: AuthoringNodeData['kind'], title: string) {
+  const prefix = getNodeIdPrefix(kind);
+  const slug = slugifyTitle(title);
+
+  return slug ? `${prefix}_${slug}` : `${prefix}_untitled`;
+}
+
+function createUniqueNodeId(
+  preferredId: string,
+  existingIds: string[],
+  currentNodeId?: string,
+) {
+  const unavailableIds = existingIds.filter((id) => id !== currentNodeId);
+
+  if (!unavailableIds.includes(preferredId)) {
+    return preferredId;
+  }
+
+  let index = 2;
+  let candidate = `${preferredId}_${index}`;
+
+  while (unavailableIds.includes(candidate)) {
+    index += 1;
+    candidate = `${preferredId}_${index}`;
+  }
+
+  return candidate;
+}
+// End Section: Functions for generating unique node IDs based on title and kind
 
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -142,8 +204,14 @@ export default function App() {
     data: AuthoringNodeData,
     position = { x: 120, y: 120 },
   ) {
+    const preferredId = createNodeIdFromTitle(data.kind, data.title);
+    const uniqueId = createUniqueNodeId(
+      preferredId,
+      nodes.map((node) => node.id),
+    );
+
     const newNode: Node<AuthoringNodeData> = {
-      id: createNodeId(data.kind),
+      id: uniqueId,
       type,
       position,
       data,
@@ -271,6 +339,86 @@ export default function App() {
       },
       { x: 1440, y: 360 },
     );
+  }
+
+  // Function for renaming nodes and updating edges when node IDs change
+  function renameNodeIdFromTitle(nodeId: string) {
+    const nodeToRename = nodes.find((node) => node.id === nodeId);
+  
+    if (!nodeToRename) {
+      return;
+    }
+  
+    const preferredId = createNodeIdFromTitle(
+      nodeToRename.data.kind,
+      nodeToRename.data.title,
+    );
+  
+    const uniqueId = createUniqueNodeId(
+      preferredId,
+      nodes.map((node) => node.id),
+      nodeId,
+    );
+  
+    if (uniqueId === nodeId) {
+      return;
+    }
+  
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        const updatedNode =
+          node.id === nodeId
+            ? {
+                ...node,
+                id: uniqueId,
+              }
+            : node;
+  
+        const contextPatch = updatedNode.data.contextPatch;
+  
+        if (!contextPatch?.branchSelections?.[nodeId]) {
+          return updatedNode;
+        }
+  
+        const nextBranchSelections = {
+          ...contextPatch.branchSelections,
+        };
+  
+        nextBranchSelections[uniqueId] = nextBranchSelections[nodeId];
+        delete nextBranchSelections[nodeId];
+  
+        return {
+          ...updatedNode,
+          data: {
+            ...updatedNode.data,
+            contextPatch: {
+              ...contextPatch,
+              branchSelections: nextBranchSelections,
+            },
+          },
+        };
+      }),
+    );
+  
+    setEdges((currentEdges) =>
+      currentEdges.map((edge) => {
+        const nextSource = edge.source === nodeId ? uniqueId : edge.source;
+        const nextTarget = edge.target === nodeId ? uniqueId : edge.target;
+  
+        return {
+          ...edge,
+          id: `xy-edge__${nextSource}${edge.sourceHandle ?? ''}-${nextTarget}`,
+          source: nextSource,
+          target: nextTarget,
+        };
+      }),
+    );
+  
+    setScenarioMeta((currentMeta) => ({
+      ...currentMeta,
+      startNodeId:
+        currentMeta.startNodeId === nodeId ? uniqueId : currentMeta.startNodeId,
+    }));
   }
 
   function saveDiagram() {
@@ -728,6 +876,7 @@ export default function App() {
         <InspectorPanel
           selectedNode={selectedNode ?? null}
           onUpdateNodeData={updateNodeData}
+          onRenameNodeIdFromTitle={renameNodeIdFromTitle}
         />
       )}
       </div>

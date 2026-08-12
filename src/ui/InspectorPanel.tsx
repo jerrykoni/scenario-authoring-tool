@@ -13,6 +13,7 @@ type InspectorPanelProps = {
     nodeId: string,
     updatedData: Partial<AuthoringNodeData>,
   ) => void;
+  onRenameNodeIdFromTitle: (nodeId: string) => void;
 };
 
 function listToText(values?: string[]) {
@@ -164,6 +165,7 @@ function textToBranchSelections(value: string): BranchSelections | undefined {
 export function InspectorPanel({
   selectedNode,
   onUpdateNodeData,
+  onRenameNodeIdFromTitle,
 }: InspectorPanelProps) {
   const [assessmentTagsText, setAssessmentTagsText] = useState('');
   const [iconKeysText, setIconKeysText] = useState('');
@@ -253,6 +255,7 @@ export function InspectorPanel({
           <input
             value={data.title}
             onChange={(event) => updateField('title', event.target.value)}
+            onBlur={() => onRenameNodeIdFromTitle(selectedNodeId)}
           />
         </label>
       </div>
