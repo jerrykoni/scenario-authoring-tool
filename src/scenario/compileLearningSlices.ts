@@ -669,10 +669,25 @@ export function compileLearningSlices(
     startNodeId,
   );
 
+  let defaultSliceCount = 0;
+
+  const uniqueSlices = slices.map((slice) => {
+    if (slice.sliceId !== 'learning_default') {
+      return slice;
+    }
+
+    defaultSliceCount += 1;
+
+    return {
+      ...slice,
+      sliceId: `learning_default_${String(defaultSliceCount).padStart(2, '0')}`,
+    };
+  });
+
   return {
     scenarioId,
     mode: 'learning',
     generatedAt: new Date().toISOString(),
-    slices,
+    slices: uniqueSlices,
   };
 }

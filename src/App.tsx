@@ -227,10 +227,40 @@ export default function App() {
     );
   }
 
+  function getNodeSourceHandle(node: Node<AuthoringNodeData>) {
+    switch (node.type) {
+      case 'actionNode':
+      case 'notificationNode':
+        return 'next';
+
+      case 'yesNoDecisionNode':
+        return 'yes';
+
+      case 'dialogueDecisionNode':
+        return node.data?.choices?.[0]?.choiceId ?? undefined;
+
+      default:
+        return undefined;
+    }
+  }
+
+  function getNodePositionAfterSelectedNode(
+    anchorNode?: Node<AuthoringNodeData>,
+  ) {
+    if (!anchorNode) {
+      return { x: 120, y: 120 };
+    }
+
+    return {
+      x: anchorNode.position.x + 320,
+      y: anchorNode.position.y + 60,
+    };
+  }
+
   function addNode(
     type: string,
     data: AuthoringNodeData,
-    position = { x: 120, y: 120 },
+    position = getNodePositionAfterSelectedNode(selectedNode),
   ) {
     const preferredId = createNodeIdFromTitle(data.kind, data.title);
     const uniqueId = createUniqueNodeId(
@@ -246,127 +276,128 @@ export default function App() {
     };
 
     setNodes((currentNodes) => [...currentNodes, newNode]);
+
+    if (!selectedNode) {
+      return;
+    }
+
+    const sourceHandle = getNodeSourceHandle(selectedNode);
+    if (!sourceHandle) {
+      return;
+    }
+
+    setEdges((currentEdges) =>
+      addEdge(
+        {
+          id: `xy-edge__${selectedNode.id}${sourceHandle}-${uniqueId}`,
+          source: selectedNode.id,
+          sourceHandle,
+          target: uniqueId,
+        },
+        currentEdges,
+      ),
+    );
   }
 
   function addActionNode() {
-    addNode(
-      'actionNode',
-      {
-        kind: 'action',
-        title: 'New action',
-        titleKey: '',
-        promptKey: '',
-        instructionKey: '',
-        iconKeys: [],
-        eventType: 'ActionPerformed',
-        targetId: 'subject.target',
-        interactionType: 'action_type',
-        minimumDurationSeconds: 0,
-        assessmentTags: ['required_action'],
-      },
-      { x: 420, y: 360 },
-    );
+    addNode('actionNode', {
+      kind: 'action',
+      title: 'New action',
+      titleKey: '',
+      promptKey: '',
+      instructionKey: '',
+      iconKeys: [],
+      eventType: 'ActionPerformed',
+      targetId: 'subject.casualty',
+      interactionType: 'action_type',
+      minimumDurationSeconds: 0,
+      assessmentTags: [],
+    });
   }
 
   function addYesNoDecisionNode() {
-    addNode(
-      'yesNoDecisionNode',
-      {
-        kind: 'yesNoDecision',
-        title: 'New yes/no decision',
-        titleKey: '',
-        promptKey: '',
-        instructionKey: '',
-        iconKeys: [],
-        choicesTitleKey: '',
-        choices: [
-          {
-            choiceId: 'yes',
-            labelKey: 'Yes',
-            styleKey: 'positive',
-            iconKey: '',
-            stateEffects: {},
-          },
-          {
-            choiceId: 'no',
-            labelKey: 'No',
-            styleKey: 'negative',
-            iconKey: '',
-            stateEffects: {},
-          },
-        ],
-        assessmentTags: ['clinical_reasoning'],
-      },
-      { x: 720, y: 360 },
-    );
+    addNode('yesNoDecisionNode', {
+      kind: 'yesNoDecision',
+      title: 'New yes/no decision',
+      titleKey: '',
+      promptKey: '',
+      instructionKey: '',
+      iconKeys: [],
+      choicesTitleKey: '',
+      choices: [
+        {
+          choiceId: 'yes',
+          labelKey: 'Yes',
+          styleKey: 'positive',
+          iconKey: '',
+          stateEffects: {},
+        },
+        {
+          choiceId: 'no',
+          labelKey: 'No',
+          styleKey: 'negative',
+          iconKey: '',
+          stateEffects: {},
+        },
+      ],
+      assessmentTags: [],
+    });
   }
 
   function addDialogueDecisionNode() {
-    addNode(
-      'dialogueDecisionNode',
-      {
-        kind: 'dialogueDecision',
-        title: 'New dialogue decision',
-        titleKey: '',
-        promptKey: '',
-        instructionKey: '',
-        iconKeys: [],
-        choicesTitleKey: '',
-        choices: [
-          {
-            choiceId: 'choice_one',
-            labelKey: 'choice_one',
-            styleKey: 'dialogue',
-            iconKey: '',
-            stateEffects: {},
-          },
-          {
-            choiceId: 'choice_two',
-            labelKey: 'choice_two',
-            styleKey: 'dialogue',
-            iconKey: '',
-            stateEffects: {},
-          },
-        ],
-        assessmentTags: ['dialogue_choice'],
-      },
-      { x: 960, y: 360 },
-    );
+    addNode('dialogueDecisionNode', {
+      kind: 'dialogueDecision',
+      title: 'New dialogue decision',
+      titleKey: '',
+      promptKey: '',
+      instructionKey: '',
+      iconKeys: [],
+      choicesTitleKey: '',
+      choices: [
+        {
+          choiceId: 'choice_one',
+          labelKey: 'choice_one',
+          styleKey: 'dialogue',
+          iconKey: '',
+          stateEffects: {},
+        },
+        {
+          choiceId: 'choice_two',
+          labelKey: 'choice_two',
+          styleKey: 'dialogue',
+          iconKey: '',
+          stateEffects: {},
+        },
+      ],
+      assessmentTags: ['dialogue_choice'],
+    });
   }
 
   function addNotificationNode() {
-    addNode(
-      'notificationNode',
-      {
-        kind: 'notification',
-        title: 'New notification',
-        titleKey: '',
-        promptKey: '',
-        instructionKey: '',
-        iconKeys: [],
-        contextPatch: {
-          branchSelections: {},
-        },
-        assessmentTags: [],
+    addNode('notificationNode', {
+      kind: 'notification',
+      title: 'New notification',
+      titleKey: '',
+      promptKey: '',
+      instructionKey: '',
+      iconKeys: [],
+      contextPatch: {
+        branchSelections: {},
       },
-      { x: 1200, y: 360 },
-    );
+      assessmentTags: [],
+    });
   }
 
   function addEndNode() {
-    addNode(
-      'endNode',
-      {
-        kind: 'end',
-        title: 'New end node',
-        titleKey: '',
-        promptKey: '',
-        instructionKey: '',
-        iconKeys: [],
-        assessmentTags: [],
-      },
-      { x: 1440, y: 360 },
-    );
+    addNode('endNode', {
+      kind: 'end',
+      title: 'New end node',
+      titleKey: '',
+      promptKey: '',
+      instructionKey: '',
+      iconKeys: [],
+      assessmentTags: [],
+    });
   }
 
   // Function for renaming nodes and updating edges when node IDs change
