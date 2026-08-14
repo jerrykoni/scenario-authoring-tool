@@ -60,6 +60,42 @@ function cloneContext(
   };
 }
 
+/**
+ * Produces a stable string form for nested branch/decision state so we can compare
+ * equivalent traversal states without relying on object insertion order.
+ */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([leftKey], [rightKey]) => leftKey.localeCompare(rightKey),
+    );
+
+    return `{${entries
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+      .join(',')}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+/**
+ * Represents a logical slice as a canonical key so equivalent generated slices can be
+ * collapsed even when they were discovered through different traversal paths.
+ */
+function createLearningSliceSignature(slice: LearningSlice): string {
+  return stableStringify({
+    startNodeId: slice.startNodeId,
+    branchSelections: slice.branchSelections,
+    sceneState: slice.sceneState,
+    decisionRules: slice.decisionRules,
+    notificationRules: slice.notificationRules,
+  });
+}
+
 function createLearningSliceId(
   decisionRules: Record<string, LearningDecisionRule>,
 ) {
@@ -371,31 +407,72 @@ function resetForContinuation(): LearningTraversalContext {
 //   });
 // }
 
-function getNotificationNodeForChoice(
+/**
+ * Walks the downstream branch for a single choice and returns the opposite choice id if a
+ * notification later patches this decision to a different branch.
+ *
+ * Example: if a decision has yes/no and a later notification says "treat this as yes",
+ * then the no-branch should be considered covered and filtered out from learning slices.
+ */
+function getCoveredChoiceIdForBranch(
   decisionNode: Node<AuthoringNodeData>,
   choice: AuthoringChoiceData,
   nodes: Node<AuthoringNodeData>[],
   edges: Edge[],
-) {
-  const nextNodeId = getNextNodeIdFromHandle(
+  visitedNodeIds = new Set<string>(),
+): string | undefined {
+  const startNodeId = getNextNodeIdFromHandle(
     decisionNode.id,
     choice.choiceId,
     edges,
   );
 
-  if (!nextNodeId) {
+  if (!startNodeId) {
     return undefined;
   }
 
-  const nextNode = getNodeById(nodes, nextNodeId);
+  const queue = [startNodeId];
+  const seenNodeIds = new Set<string>(visitedNodeIds);
 
-  if (nextNode?.data.kind !== 'notification') {
-    return undefined;
+  while (queue.length > 0) {
+    const currentNodeId = queue.shift();
+
+    if (!currentNodeId || seenNodeIds.has(currentNodeId)) {
+      continue;
+    }
+
+    seenNodeIds.add(currentNodeId);
+
+    const currentNode = getNodeById(nodes, currentNodeId);
+
+    if (!currentNode) {
+      continue;
+    }
+
+    if (currentNode.data.kind === 'notification') {
+      const patchedChoiceId =
+        currentNode.data.contextPatch?.branchSelections?.[decisionNode.id];
+
+      if (patchedChoiceId && patchedChoiceId !== choice.choiceId) {
+        return patchedChoiceId;
+      }
+    }
+
+    const downstreamNodeIds = edges
+      .filter((edge) => edge.source === currentNodeId)
+      .map((edge) => edge.target)
+      .filter((targetNodeId) => !seenNodeIds.has(targetNodeId));
+
+    queue.push(...downstreamNodeIds);
   }
 
-  return nextNode;
+  return undefined;
 }
 
+/**
+ * Aggregates all opposite choices that are already taught by downstream notification patches
+ * for this decision node.
+ */
 function getCoveredChoiceIdsForDecision(
   decisionNode: Node<AuthoringNodeData>,
   nodes: Node<AuthoringNodeData>[],
@@ -405,21 +482,14 @@ function getCoveredChoiceIdsForDecision(
   const choices = decisionNode.data.choices ?? [];
 
   for (const choice of choices) {
-    const notificationNode = getNotificationNodeForChoice(
+    const patchedChoiceId = getCoveredChoiceIdForBranch(
       decisionNode,
       choice,
       nodes,
       edges,
     );
 
-    const patchedChoiceId =
-      notificationNode?.data.contextPatch?.branchSelections?.[decisionNode.id];
-
     if (!patchedChoiceId) {
-      continue;
-    }
-
-    if (patchedChoiceId === choice.choiceId) {
       continue;
     }
 
@@ -429,6 +499,11 @@ function getCoveredChoiceIdsForDecision(
   return coveredChoiceIds;
 }
 
+/**
+ * Filters the outgoing choices for a decision based on whether a downstream notification has
+ * already covered the opposite branch. If everything is covered we fall back to the original
+ * choices to avoid producing an empty branch set.
+ */
 function getLearningChoicesForDecision(
   decisionNode: Node<AuthoringNodeData>,
   nodes: Node<AuthoringNodeData>[],
@@ -460,6 +535,12 @@ function getLearningChoicesForDecision(
   return filteredChoices;
 }
 
+/**
+ * Recursively walks the scenario graph and turns each valid path into a learning slice.
+ *
+ * The traversal maintains a context object with branch selections, decision rules, and the
+ * notification history so slices can represent the state at the moment they were generated.
+ */
 function traverseLearningPath(
   nodeId: string,
   nodes: Node<AuthoringNodeData>[],
@@ -473,9 +554,11 @@ function traverseLearningPath(
     return [];
   }
 
-  const visitKey = `${nodeId}|${JSON.stringify(
-    context.decisionRules,
-  )}|${JSON.stringify(context.notificationRules)}`;
+  const visitKey = `${nodeId}|${stableStringify({
+    branchSelections: context.branchSelections,
+    decisionRules: context.decisionRules,
+    notificationRules: context.notificationRules,
+  })}`;
 
   if (context.visited.has(visitKey)) {
     console.warn(`Cycle detected while generating learning slices at ${nodeId}`);
@@ -590,6 +673,9 @@ function traverseLearningPath(
       };
 
       if (isLearningBreakPoint) {
+        // Breakpoints create a teaching slice at this point and then continue from the
+        // redirect/next node. That allows us to keep the teaching summary while still
+        // traversing the remaining scenario logic.
         const endingContext = cloneContext(nextContext);
 
         endingContext.pathNodeIds = appendEndNodeIfNeeded(
@@ -645,6 +731,10 @@ function traverseLearningPath(
   }
 }
 
+/**
+ * Builds the learning-slice package for a scenario by traversing all decision paths,
+ * applying notification context patches, and collapsing equivalent logical outcomes.
+ */
 export function compileLearningSlices(
   nodes: Node<AuthoringNodeData>[],
   edges: Edge[],
@@ -669,20 +759,35 @@ export function compileLearningSlices(
     startNodeId,
   );
 
+  // Collapsing equivalent logical slices avoids duplicates that arise when the same
+  // branch is discovered through different traversal histories (for example, after a
+  // breakpoint continuation or a notification redirect).
+  const uniqueSlicesBySignature = new Map<string, LearningSlice>();
+
+  for (const slice of slices) {
+    const signature = createLearningSliceSignature(slice);
+
+    if (!uniqueSlicesBySignature.has(signature)) {
+      uniqueSlicesBySignature.set(signature, slice);
+    }
+  }
+
   let defaultSliceCount = 0;
 
-  const uniqueSlices = slices.map((slice) => {
-    if (slice.sliceId !== 'learning_default') {
-      return slice;
-    }
+  const uniqueSlices = Array.from(uniqueSlicesBySignature.values()).map(
+    (slice) => {
+      if (slice.sliceId !== 'learning_default') {
+        return slice;
+      }
 
-    defaultSliceCount += 1;
+      defaultSliceCount += 1;
 
-    return {
-      ...slice,
-      sliceId: `learning_default_${String(defaultSliceCount).padStart(2, '0')}`,
-    };
-  });
+      return {
+        ...slice,
+        sliceId: `learning_default_${String(defaultSliceCount).padStart(2, '0')}`,
+      };
+    },
+  );
 
   return {
     scenarioId,
