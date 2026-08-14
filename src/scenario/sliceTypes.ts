@@ -28,9 +28,26 @@ export type PracticeSlice = {
   steps: PracticeStep[];
 };
 
+export type PracticeLoopInfo = {
+  /**
+   * Indicates that the step is the point where the path re-enters an earlier node.
+   * The runtime can use this to reconstruct a loop without generating a new slice.
+   */
+  startsLoop: boolean;
+  /**
+   * Node that this step loops back to. This is the step that the loop points at.
+   */
+  targetNodeId?: string;
+};
+
 export type PracticeStep = {
   nodeId: string;
   stateRevealNodeIds: string[];
+  /**
+   * Optional loop metadata for steps that trigger a backward-edge traversal.
+   * This preserves loop intent without creating redundant practice slices.
+   */
+  loop?: PracticeLoopInfo;
 };
 
 export type LearningSlicePackage = {

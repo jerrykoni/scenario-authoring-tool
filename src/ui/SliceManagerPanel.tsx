@@ -130,6 +130,16 @@ export function SliceManagerPanel({
             </div>
           )}
 
+          {selectedPreviewInfo.loop?.startsLoop && (
+            <div
+              className="slice-panel__detail-row"
+              title={`This step starts a loop back to ${selectedPreviewInfo.loop.targetNodeId ?? 'an earlier node'}.`}
+            >
+              <strong>Loop:</strong> starts loop to{' '}
+              {selectedPreviewInfo.loop.targetNodeId ?? 'unknown target'}
+            </div>
+          )}
+
           {selectedPreviewInfo.revealedStateEntries.length > 0 && (
             <div className="slice-panel__state-list">
               <strong>State entries:</strong>

@@ -4,6 +4,7 @@ import type { AuthoringNodeData } from './authoringTypes';
 import type {
   LearningSlice,
   LearningSlicePackage,
+  PracticeLoopInfo,
   PracticeSlice,
   PracticeSlicePackage,
   SliceSceneStateEntry,
@@ -26,6 +27,7 @@ export type SlicePreviewNodeInfo = {
   kind: string;
 
   correctChoiceId?: string;
+  loop?: PracticeLoopInfo;
 
   stateRevealNodeIds: string[];
   revealedStateEntries: SlicePreviewStateEntry[];
@@ -180,14 +182,27 @@ function getSceneStateEntriesForSources(
     .map(([key, entry]) => asPreviewStateEntry(key, entry));
 }
 
-function getPracticePath(slicePackage: PracticeSlicePackage, sliceIndex: number) {
+type PreviewPathStep = {
+  nodeId: string;
+  stateRevealNodeIds: string[];
+  loop?: PracticeLoopInfo;
+};
+
+function getPracticePath(
+  slicePackage: PracticeSlicePackage,
+  sliceIndex: number,
+): PreviewPathStep[] {
   return slicePackage.slices[sliceIndex].steps.map((step) => ({
     nodeId: step.nodeId,
     stateRevealNodeIds: step.stateRevealNodeIds ?? [],
+    loop: step.loop,
   }));
 }
 
-function getLearningPath(slicePackage: LearningSlicePackage, sliceIndex: number) {
+function getLearningPath(
+  slicePackage: LearningSlicePackage,
+  sliceIndex: number,
+): PreviewPathStep[] {
   return slicePackage.slices[sliceIndex].pathNodeIds.map((nodeId) => ({
     nodeId,
     stateRevealNodeIds: [],
@@ -213,6 +228,12 @@ function createNodeDisplayLabel(info: SlicePreviewNodeInfo) {
 
   if (info.stateRevealNodeIds.length > 0) {
     lines.push(`reveals: ${info.stateRevealNodeIds.join(', ')}`);
+  }
+
+  if (info.loop?.startsLoop) {
+    lines.push(
+      `loop -> ${info.loop.targetNodeId ?? 'unknown target'}`,
+    );
   }
 
   const stateLabel = createShortStateLabel(info.revealedStateEntries);
@@ -262,6 +283,7 @@ function buildInfoForPathNode(
   scenarioNodes: Node<AuthoringNodeData>[],
   nodeId: string,
   stateRevealNodeIds: string[],
+  loop?: PracticeLoopInfo,
 ): SlicePreviewNodeInfo {
   const kind = getNodeKind(scenarioNodes, nodeId);
 
@@ -278,6 +300,7 @@ function buildInfoForPathNode(
     title: getNodeLabel(scenarioNodes, nodeId),
     kind,
     correctChoiceId: getCorrectChoiceId(slice, nodeId),
+    loop,
     stateRevealNodeIds,
     revealedStateEntries,
     notificationContextPatch: getNotificationContextPatch(slice, nodeId),
@@ -352,6 +375,7 @@ export function buildSlicePreviewGraph(
         scenarioNodes,
         pathStep.nodeId,
         pathStep.stateRevealNodeIds,
+        pathStep.loop,
       );
 
       previewNodes.push({
