@@ -4,6 +4,7 @@ import type {
   AuthoringNodeData,
   BranchSelections,
   StateApplyTiming,
+  StateEffects,
 } from './authoringTypes';
 import type {
   LearningDecisionRule,
@@ -246,16 +247,21 @@ function getRedirectNodeIdFromContextPatch(
 }
 
 function getDefaultApplyTiming(
-  context: LearningTraversalContext,
+  currentSceneState: SliceSceneState,
+  stateEffects: StateEffects | undefined,
 ): StateApplyTiming {
-  if (
-    !context.isAfterContextPatch &&
-    Object.keys(context.branchSelections).length === 0
-  ) {
-    return 'AtSliceStart';
+  // If any state key in stateEffects already exists in the current scene state,
+  // this is an update → reveal when source node is reached.
+  // Otherwise, this is the first time setting these keys → apply at slice start.
+  if (stateEffects) {
+    for (const key of Object.keys(stateEffects)) {
+      if (currentSceneState[key]) {
+        return 'OnSourceNodeReached';
+      }
+    }
   }
 
-  return 'OnSourceNodeReached';
+  return 'AtSliceStart';
 }
 
 // function applyBranchSelectionsToContext(
@@ -609,7 +615,7 @@ function traverseLearningPath(
 
         const stateEffects = inferStateEffectsFromChoice(node.id, choice);
         const applyTiming =
-          choice.stateApplyTiming ?? getDefaultApplyTiming(nextContext);
+          choice.stateApplyTiming ?? getDefaultApplyTiming(nextContext.sceneState, stateEffects);
 
         nextContext.decisionRules[node.id] = {
           correctChoiceId: choice.choiceId,

@@ -22,10 +22,23 @@ export function mergeSceneStateEntries(
   };
 
   for (const [key, value] of Object.entries(stateEffects)) {
+    const previousEntry = currentSceneState[key];
+    
+    // If this key already exists, preserve its history
+    const history = previousEntry?.history ?? [];
+    if (previousEntry) {
+      history.push({
+        value: previousEntry.value,
+        applyTiming: previousEntry.applyTiming,
+        sourceNodeId: previousEntry.sourceNodeId,
+      });
+    }
+
     nextSceneState[key] = {
       value,
       applyTiming: applyTiming as SliceStateApplyTiming,
       sourceNodeId,
+      history: history.length > 0 ? history : undefined,
     };
   }
 

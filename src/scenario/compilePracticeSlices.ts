@@ -3,12 +3,14 @@ import type {
   AuthoringChoiceData,
   AuthoringNodeData,
   StateApplyTiming,
+  StateEffects,
 } from './authoringTypes';
 import type {
   PracticeLoopInfo,
   PracticeSlice,
   PracticeSlicePackage,
   PracticeStep,
+  SliceSceneState,
 } from './sliceTypes';
 import { inferStateEffectsFromChoice } from './stateInference';
 import { mergeSceneStateEntries } from './sceneStateUtils';
@@ -89,12 +91,22 @@ function createPracticeSlice(context: TraversalContext): PracticeSlice {
   };
 }
 
-function getDefaultApplyTiming(context: TraversalContext): StateApplyTiming {
-  // First resolved decision defines initial scene setup.
-  // Later state-producing decisions are revealed when their source node is reached.
-  return Object.keys(context.branchSelections).length === 0
-    ? 'AtSliceStart'
-    : 'OnSourceNodeReached';
+function getDefaultApplyTiming(
+  currentSceneState: SliceSceneState,
+  stateEffects: StateEffects | undefined,
+): StateApplyTiming {
+  // If any state key in stateEffects already exists in the current scene state,
+  // this is an update → reveal when source node is reached.
+  // Otherwise, this is the first time setting these keys → apply at slice start.
+  if (stateEffects) {
+    for (const key of Object.keys(stateEffects)) {
+      if (currentSceneState[key]) {
+        return 'OnSourceNodeReached';
+      }
+    }
+  }
+
+  return 'AtSliceStart';
 }
 
 function addRevealToLastStep(context: TraversalContext, sourceNodeId: string) {
@@ -210,7 +222,7 @@ function traversePracticePath(
 
         const stateEffects = inferStateEffectsFromChoice(node.id, choice);
         const applyTiming =
-          choice.stateApplyTiming ?? getDefaultApplyTiming(context);
+          choice.stateApplyTiming ?? getDefaultApplyTiming(context.sceneState, stateEffects);
 
         nextContext.sceneState = mergeSceneStateEntries(
           nextContext.sceneState,

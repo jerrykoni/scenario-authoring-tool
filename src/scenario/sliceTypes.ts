@@ -4,10 +4,18 @@ export type SliceStateApplyTiming =
   | 'AtSliceStart'
   | 'OnSourceNodeReached';
 
+export type SliceSceneStateHistoryEntry = {
+  value: PrimitiveSliceStateValue;
+  applyTiming: SliceStateApplyTiming;
+  sourceNodeId: string;
+};
+
 export type SliceSceneStateEntry = {
   value: PrimitiveSliceStateValue;
   applyTiming: SliceStateApplyTiming;
   sourceNodeId: string;
+  // History of all previous values for this state key during slice traversal
+  history?: SliceSceneStateHistoryEntry[];
 };
 
 export type SliceSceneState = Record<string, SliceSceneStateEntry>;
