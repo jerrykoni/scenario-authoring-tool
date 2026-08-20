@@ -6,6 +6,7 @@ import type {
   BranchSelections,
   StateEffects,
 } from '../scenario/authoringTypes';
+import { getBaseNodeId } from '../scenario/nodeIdUtils';
 
 type InspectorPanelProps = {
   selectedNode: Node<AuthoringNodeData> | null;
@@ -268,7 +269,7 @@ export function InspectorPanel({
           <input
             value={data.titleKey ?? ''}
             onChange={(event) => updateField('titleKey', event.target.value)}
-            placeholder={`${selectedNode.id}_title`}
+            placeholder={`${getBaseNodeId(selectedNode.id)}_title`}
           />
         </label>
 
@@ -277,7 +278,7 @@ export function InspectorPanel({
           <input
             value={data.promptKey ?? ''}
             onChange={(event) => updateField('promptKey', event.target.value)}
-            placeholder={`${selectedNode.id}_prompt`}
+            placeholder={`${getBaseNodeId(selectedNode.id)}_prompt`}
           />
         </label>
 
@@ -288,7 +289,7 @@ export function InspectorPanel({
             onChange={(event) =>
               updateField('instructionKey', event.target.value)
             }
-            placeholder={`${selectedNode.id}_instruction`}
+            placeholder={`${getBaseNodeId(selectedNode.id)}_instruction`}
           />
         </label>
       </div>

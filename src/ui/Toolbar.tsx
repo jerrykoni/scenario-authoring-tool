@@ -14,6 +14,7 @@ type ToolbarProps = {
   onExportScenarioJson: () => void;
   onExportPracticeSlicesJson: () => void;
   onExportLearningSlicesJson: () => void;
+  onExportLocalizationCsv: () => void;
 
   onLoadSlicesClick: () => void;
   isSlicePreviewMode: boolean;
@@ -32,6 +33,7 @@ export function Toolbar({
   onExportScenarioJson,
   onExportPracticeSlicesJson,
   onExportLearningSlicesJson,
+  onExportLocalizationCsv,
   onLoadSlicesClick,
   isSlicePreviewMode,
 }: ToolbarProps) {
@@ -62,6 +64,9 @@ export function Toolbar({
           </button>
           <button onClick={onExportLearningSlicesJson}>
             Export Learning Slices
+          </button>
+          <button onClick={onExportLocalizationCsv}>
+            Export Localization CSV
           </button>
         </>
       )}

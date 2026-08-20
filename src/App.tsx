@@ -16,6 +16,10 @@ import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
 import { initialEdges, initialNodes } from './scenario/sampleGraph';
 import type { AuthoringNodeData } from './scenario/authoringTypes';
+import {
+  createNodeIdFromTitle,
+  getBaseNodeId,
+} from './scenario/nodeIdUtils';
 import { Toolbar } from './ui/Toolbar';
 import { InspectorPanel } from './ui/InspectorPanel';
 import { 
@@ -71,45 +75,6 @@ function sanitizeFileName(value: string) {
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9._-]/g, '')
     .replace(/_+/g, '_');
-}
-
-// Section: Functions for generating unique node IDs based on title and kind
-function slugifyTitle(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .replace(/_+/g, '_');
-}
-
-function getNodeIdPrefix(kind: AuthoringNodeData['kind']) {
-  switch (kind) {
-    case 'action':
-      return 'a';
-
-    case 'yesNoDecision':
-    case 'dialogueDecision':
-      return 'd';
-
-    case 'notification':
-      return 'n';
-
-    case 'end':
-      return 'e';
-
-    default:
-      return 'node';
-  }
-}
-
-// Creates a node ID based on the kind and title
-function createNodeIdFromTitle(kind: AuthoringNodeData['kind'], title: string) {
-  const prefix = getNodeIdPrefix(kind);
-  const slug = slugifyTitle(title);
-
-  return slug ? `${prefix}_${slug}` : `${prefix}_untitled`;
 }
 
 // Function to infer the start node ID based on the graph structure
@@ -626,6 +591,39 @@ export default function App() {
     );
   }
 
+  // Exports a CSV with all localization keys used in the diagram.
+  // Uses base node IDs to avoid duplicate entries for nodes with identical titles.
+  function exportLocalizationCsv() {
+    const validScenarioMeta = getValidScenarioMetaOrAlert();
+
+    if (!validScenarioMeta) {
+      return;
+    }
+
+    const keys = new Set<string>();
+
+    nodes.forEach((node) => {
+      const baseId = getBaseNodeId(node.id);
+
+      keys.add(`${baseId}_title`);
+      keys.add(`${baseId}_prompt`);
+      keys.add(`${baseId}_instruction`);
+    });
+
+    const sortedKeys = Array.from(keys).sort();
+    const csvContent =
+      'key,en,el\n' +
+      sortedKeys.map((key) => `${key},,`).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${validScenarioMeta.scenarioId}_localization.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function loadSlicesFromFile(file: File) {
     const reader = new FileReader();
   
@@ -877,6 +875,7 @@ export default function App() {
           onExportScenarioJson={exportScenarioJson}
           onExportPracticeSlicesJson={exportPracticeSlicesJson}
           onExportLearningSlicesJson={exportLearningSlicesJson}
+          onExportLocalizationCsv={exportLocalizationCsv}
           onLoadSlicesClick={openLoadSlicesDialog}
           isSlicePreviewMode={isSlicePreviewMode}
         />
