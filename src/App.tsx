@@ -608,6 +608,13 @@ export default function App() {
       keys.add(`${baseId}_title`);
       keys.add(`${baseId}_prompt`);
       keys.add(`${baseId}_instruction`);
+
+      if (
+        node.data.kind === 'yesNoDecision' ||
+        node.data.kind === 'dialogueDecision'
+      ) {
+        keys.add(`${baseId}_choicesTitle`);
+      }
     });
 
     const sortedKeys = Array.from(keys).sort();

@@ -369,7 +369,7 @@ export function InspectorPanel({
               onChange={(event) =>
                 updateField('choicesTitleKey', event.target.value)
               }
-              placeholder="optional"
+              placeholder={`${getBaseNodeId(selectedNode.id)}_choicesTitle`}
             />
           </label>
 
