@@ -736,7 +736,7 @@ export default function App() {
       domain: scenarioMeta.domain || '',
       description:
         scenarioMeta.description ||
-        `${scenarioMeta.scenarioId} generated from React Flow authoring graph.`,
+        `${scenarioMeta.scenarioId}_welcomeScreenKey`,
       startNodeId: inferredStart.startNodeId,
     };
   }
