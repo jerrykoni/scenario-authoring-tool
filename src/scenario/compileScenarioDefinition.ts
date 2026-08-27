@@ -6,6 +6,7 @@ import type {
   RuntimeScenarioNodeDef,
 } from './runtimeTypes';
 import { inferStateEffectsFromChoice } from './stateInference';
+import { inferChoiceIconKey } from './iconInference';
 
 export type ScenarioMetadata = {
   scenarioId: string;
@@ -77,14 +78,14 @@ function compileDecisionNode(
   const data = node.data;
 
   const choices: RuntimeScenarioChoiceDef[] = (data.choices ?? []).map(
-  (choice) => {
+  (choice, index) => {
       const stateEffects = inferStateEffectsFromChoice(node.id, choice);
 
       return {
       choiceId: choice.choiceId,
       labelKey: choice.labelKey || undefined,
       styleKey: choice.styleKey || undefined,
-      iconKey: choice.iconKey || undefined,
+      iconKey: choice.iconKey || inferChoiceIconKey(node.id, choice, index),
       nextNodeId: getNextNodeIdFromHandle(node.id, choice.choiceId, edges),
       stateEffects,
       };
